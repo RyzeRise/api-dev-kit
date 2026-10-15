@@ -1,0 +1,214 @@
+package dev.atomic;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.StringReader;
+import java.nio.file.*;
+import java.util.*;
+import javax.lang.model.SourceVersion;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.events.AliasEvent;
+
+public record Contract(
+    int version,
+    String operation,
+    String description,
+    Target target,
+    Models models,
+    String externalResponse,
+    List<Step> steps,
+    Assembly assembly,
+    Map<String, String> responseBindings) {
+  static final ObjectMapper JSON = new ObjectMapper();
+  static final Set<String> PRIMITIVES =
+      Set.of("int", "long", "double", "float", "short", "byte", "boolean", "char");
+
+  public record Target(String facade, String implementation, String delegate, String converter) {}
+
+  public record Field(
+      String name, String type, String description, boolean required, boolean diagnostic) {}
+
+  public record Model(
+      @JsonProperty("class") String className, String sourceRoot, List<Field> fields) {}
+
+  public record Models(Model request, Model response) {}
+
+  public record Step(
+      String id,
+      String handler,
+      String sourceRoot,
+      String input,
+      String inputType,
+      String outputType) {}
+
+  public record Assembly(String mode, String builder, String sourceRoot) {}
+
+  public static Object yaml(Path path) throws Exception {
+    require(Files.size(path) <= 100_000, "YAML exceeds 100 KB");
+    String text = Files.readString(path).replaceFirst("^\uFEFF", "");
+    LoaderOptions options = new LoaderOptions();
+    options.setAllowDuplicateKeys(false);
+    options.setMaxAliasesForCollections(0);
+    options.setCodePointLimit(100_000);
+    options.setNestingDepthLimit(30);
+    Yaml yaml = new Yaml(new SafeConstructor(options));
+    for (var event : yaml.parse(new StringReader(text)))
+      require(!(event instanceof AliasEvent), "YAML aliases forbidden");
+    return yaml.load(text);
+  }
+
+  public static Contract load(Path path) throws Exception {
+    try {
+      Object data = yaml(path);
+      try (var schema = Contract.class.getResourceAsStream("/schemas/api-contract.schema.json")) {
+        require(schema != null, "Contract schema not packaged");
+        var validator =
+            com.networknt.schema.JsonSchemaFactory.getInstance(
+                    com.networknt.schema.SpecVersion.VersionFlag.V202012)
+                .getSchema(schema);
+        var errors = validator.validate(JSON.valueToTree(data));
+        require(errors.isEmpty(), "Contract schema violation: " + errors);
+      }
+      Contract c = JSON.convertValue(data, Contract.class);
+      c.validate();
+      return c;
+    } catch (IllegalArgumentException e) {
+      throw e;
+    } catch (RuntimeException e) {
+      throw new IllegalArgumentException("Invalid contract: " + e.getMessage(), e);
+    }
+  }
+
+  public void validate() {
+    require(version == 1, "version must be 1");
+    id(operation);
+    require(description != null && !description.isBlank(), "description missing");
+    require(
+        target != null && models != null && assembly != null && steps != null && !steps.isEmpty(),
+        "Required contract section missing");
+    List<String> targets =
+        Arrays.asList(
+            target.facade,
+            target.implementation,
+            target.delegate,
+            target.converter,
+            externalResponse);
+    targets.forEach(Contract::fqn);
+    require(new HashSet<>(targets).size() == targets.size(), "Target types must differ");
+    model(models.request);
+    model(models.response);
+    require(
+        !models.request.className.equals(models.response.className),
+        "Request/response must differ");
+    Set<String> generated = new HashSet<>();
+    generated.add(models.request.className);
+    generated.add(models.response.className);
+    Map<String, String> fields = new HashMap<>();
+    models.request.fields.forEach(f -> fields.put(f.name, f.type));
+    Map<String, String> prior = new HashMap<>();
+    for (Step step : steps) {
+      id(step.id);
+      require(!prior.containsKey(step.id), "Duplicate step: " + step.id);
+      fqn(step.handler);
+      root(step.sourceRoot);
+      javaType(step.inputType);
+      javaType(step.outputType);
+      require(
+          !PRIMITIVES.contains(step.inputType) && !PRIMITIVES.contains(step.outputType),
+          "Handler generic requires reference type");
+      require(generated.add(step.handler), "Generated type collision");
+      require(
+          step.input != null
+              && step.input.matches(
+                  "request(?:\\.[A-Za-z_][A-Za-z0-9_]*)?|steps\\.[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)?"),
+          "Invalid input binding");
+      String[] p = step.input.split("\\.");
+      String expected = null;
+      if (p[0].equals("request")) {
+        expected = p.length == 1 ? models.request.className : fields.get(p[1]);
+        require(expected != null, "Unknown request field");
+      } else {
+        require(prior.containsKey(p[1]), "Forward/unknown step reference");
+        if (p.length == 2) expected = prior.get(p[1]);
+      }
+      require(expected == null || expected.equals(step.inputType), "Input type mismatch");
+      prior.put(step.id, step.outputType);
+    }
+    if ("direct".equals(assembly.mode)) {
+      require(
+          assembly.builder == null && assembly.sourceRoot == null,
+          "direct does not accept builder fields");
+      require(
+          steps.size() == 1 && steps.get(0).outputType.equals(models.response.className),
+          "direct requires one matching SDK result");
+    } else {
+      require("builder".equals(assembly.mode), "Unknown assembly mode");
+      fqn(assembly.builder);
+      root(assembly.sourceRoot);
+      require(generated.add(assembly.builder), "Generated builder collision");
+    }
+    require(Collections.disjoint(generated, targets), "Generated/existing type collision");
+    require(responseBindings != null && !responseBindings.isEmpty(), "responseBindings missing");
+    Set<String> resultFields = new HashSet<>();
+    models.response.fields.forEach(f -> resultFields.add(f.name));
+    responseBindings.forEach(
+        (dest, src) -> {
+          id(dest);
+          require(resultFields.contains(src), "Unknown SDK result field: " + src);
+        });
+  }
+
+  static void model(Model m) {
+    require(m != null && m.fields != null && !m.fields.isEmpty(), "Model fields missing");
+    fqn(m.className);
+    root(m.sourceRoot);
+    Set<String> names = new HashSet<>();
+    for (Field f : m.fields) {
+      id(f.name);
+      javaType(f.type);
+      require(f.description != null && !f.description.isBlank(), "Field description missing");
+      require(names.add(f.name), "Duplicate field");
+      require(!f.required || !PRIMITIVES.contains(f.type), "required only for reference fields");
+    }
+  }
+
+  static void require(boolean ok, String message) {
+    if (!ok) throw new IllegalArgumentException(message);
+  }
+
+  static void id(String s) {
+    require(
+        s != null
+            && s.matches("[A-Za-z_][A-Za-z0-9_]*")
+            && SourceVersion.isIdentifier(s)
+            && !SourceVersion.isKeyword(s)
+            && !Set.of("true", "false", "null", "_").contains(s),
+        "Invalid Java identifier: " + s);
+  }
+
+  static void fqn(String s) {
+    require(s != null && s.contains("."), "Fully qualified type required: " + s);
+    for (String p : s.split("\\.", -1)) id(p);
+  }
+
+  static void javaType(String s) {
+    require(s != null, "Missing Java type");
+    while (s.endsWith("[]")) s = s.substring(0, s.length() - 2);
+    if (!PRIMITIVES.contains(s)) fqn(s);
+  }
+
+  static void root(String s) {
+    require(s != null && s.matches("[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*"), "Invalid sourceRoot");
+    for (String p : s.split("/")) require(!p.equals(".") && !p.equals(".."), "Unsafe sourceRoot");
+  }
+
+  static String simple(String type) {
+    return type.substring(type.lastIndexOf('.') + 1);
+  }
+
+  static String cap(String s) {
+    return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+  }
+}

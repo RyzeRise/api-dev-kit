@@ -1,0 +1,49 @@
+version: 1
+operation: queryResourceByPortAddress
+description: 根据端口地址查询资源和端口信息
+target:
+  facade: com.example.sdk.ResourceFacade
+  implementation: com.example.app.ResourceFacadeImpl
+  delegate: com.example.service.ResourceDelegateImpl
+  converter: com.example.sdk.ResourceRequestConverter
+models:
+  request:
+    class: com.example.sdk.QueryResourceByPortAddressReqDto
+    sourceRoot: function-sdk/src/main/java
+    fields:
+      - name: address
+        type: java.lang.String
+        description: 接口地址
+        required: true
+        diagnostic: true
+  response:
+    class: com.example.sdk.QueryResourceByPortAddressResultDto
+    sourceRoot: function-sdk/src/main/java
+    fields:
+      - name: resourceName
+        type: java.lang.String
+        description: 资源名称
+      - name: portName
+        type: java.lang.String
+        description: 端口名称
+externalResponse: com.example.model.QueryResourceByPortAddressRsp
+steps:
+  - id: port
+    handler: com.example.app.GetPortByAddressApiHandler
+    sourceRoot: app/src/main/java
+    input: request.address
+    inputType: java.lang.String
+    outputType: com.example.inventory.PortInfo
+  - id: resource
+    handler: com.example.app.GetResourceByPortApiHandler
+    sourceRoot: app/src/main/java
+    input: steps.port
+    inputType: com.example.inventory.PortInfo
+    outputType: com.example.inventory.ResourceInfo
+assembly:
+  mode: builder
+  builder: com.example.app.QueryResourceByPortAddressResultDtoBuilder
+  sourceRoot: app/src/main/java
+responseBindings:
+  resourceName: resourceName
+  portName: portName

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Atomic API Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "operation", "description", "target", "models", "externalResponse", "steps", "assembly", "responseBindings"],
+  "properties": {
+    "version": {"const": 1},
+    "operation": {"$ref": "#/$defs/identifier"},
+    "description": {"type": "string", "minLength": 1},
+    "target": {
+      "type": "object", "additionalProperties": false,
+      "required": ["facade", "implementation", "delegate", "converter"],
+      "properties": {
+        "facade": {"$ref": "#/$defs/fqn"},
+        "implementation": {"$ref": "#/$defs/fqn"},
+        "delegate": {"$ref": "#/$defs/fqn"},
+        "converter": {"$ref": "#/$defs/fqn"}
+      }
+    },
+    "models": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request", "response"],
+      "properties": {
+        "request": {"$ref": "#/$defs/model"},
+        "response": {"$ref": "#/$defs/model"}
+      }
+    },
+    "externalResponse": {"$ref": "#/$defs/fqn"},
+    "steps": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "handler", "sourceRoot", "input", "inputType", "outputType"],
+        "properties": {
+          "id": {"$ref": "#/$defs/identifier"},
+          "handler": {"$ref": "#/$defs/fqn"},
+          "sourceRoot": {"$ref": "#/$defs/sourceRoot"},
+          "input": {"type": "string", "pattern": "^(request(?:\\.[A-Za-z_][A-Za-z0-9_]*)?|steps\\.[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)?)$"},
+          "inputType": {"$ref": "#/$defs/javaType"},
+          "outputType": {"$ref": "#/$defs/javaType"}
+        }
+      }
+    },
+    "assembly": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["mode"], "properties": {"mode": {"const": "direct"}}
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["mode", "builder", "sourceRoot"],
+          "properties": {
+            "mode": {"const": "builder"},
+            "builder": {"$ref": "#/$defs/fqn"},
+            "sourceRoot": {"$ref": "#/$defs/sourceRoot"}
+          }
+        }
+      ]
+    },
+    "responseBindings": {
+      "type": "object", "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/identifier"},
+      "additionalProperties": {"$ref": "#/$defs/identifier"}
+    }
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+    "fqn": {"type": "string", "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*\\.)+[A-Za-z_][A-Za-z0-9_]*$"},
+    "javaType": {"type": "string", "pattern": "^(?:(?:boolean|byte|short|int|long|char|float|double)|(?:[A-Za-z_][A-Za-z0-9_]*\\.)+[A-Za-z_][A-Za-z0-9_]*)(?:\\[\\])*$"},
+    "sourceRoot": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"},
+    "field": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "type", "description"],
+      "properties": {
+        "name": {"$ref": "#/$defs/identifier"},
+        "type": {"$ref": "#/$defs/javaType"},
+        "description": {"type": "string", "minLength": 1},
+        "required": {"type": "boolean", "default": false},
+        "diagnostic": {"type": "boolean", "default": false}
+      }
+    },
+    "model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["class", "sourceRoot", "fields"],
+      "properties": {
+        "class": {"$ref": "#/$defs/fqn"},
+        "sourceRoot": {"$ref": "#/$defs/sourceRoot"},
+        "fields": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/field"}}
+      }
+    }
+  }
+}

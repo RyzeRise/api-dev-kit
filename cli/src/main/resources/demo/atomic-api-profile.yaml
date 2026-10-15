@@ -1,0 +1,18 @@
+version: 1
+targetJava: 8
+types:
+  componentManagement: com.example.framework.OpsComponentManagement
+  facadeAnnotation: com.example.framework.OpsFacadeInterface
+  handlerBase: com.example.framework.ApiHandler
+  internalException: com.example.framework.OpsApiException
+  externalException: com.example.framework.ServiceException
+  injectionAnnotation: com.example.framework.Autowired
+  componentAnnotation: com.example.framework.Component
+facadeDefault: throw
+layout:
+  - packagePrefix: com.example.sdk
+    sourceRoot: function-sdk/src/main/java
+  - packagePrefix: com.example.app
+    sourceRoot: app/src/main/java
+  - packagePrefix: com.example.service
+    sourceRoot: service/src/main/java

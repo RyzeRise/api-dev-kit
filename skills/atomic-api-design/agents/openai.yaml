@@ -1,0 +1,4 @@
+interface:
+  display_name: "原子 API 设计与开发"
+  short_description: "定义 API contract、规划 Java AST 代码生成与检查并审查分层规范"
+  default_prompt: "使用 $atomic-api-design 为新 API 定义 contract，规划调用链并检查开发范式。"

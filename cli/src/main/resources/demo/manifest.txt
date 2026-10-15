@@ -1,0 +1,15 @@
+atomic-api-profile.yaml
+pom.xml
+contracts/single-handler.yaml
+contracts/multi-handler.yaml
+src/main/java/com/example/framework/ApiHandler.java
+src/main/java/com/example/framework/OpsApiException.java
+src/main/java/com/example/framework/ServiceException.java
+src/main/java/com/example/framework/OpsComponentManagement.java
+src/main/java/com/example/framework/OpsFacadeInterface.java
+src/main/java/com/example/framework/Component.java
+src/main/java/com/example/framework/Autowired.java
+src/main/java/com/example/inventory/PortInfo.java
+src/main/java/com/example/inventory/ResourceInfo.java
+src/main/java/com/example/model/QueryResourceByAddressRsp.java
+src/main/java/com/example/model/QueryResourceByPortAddressRsp.java
