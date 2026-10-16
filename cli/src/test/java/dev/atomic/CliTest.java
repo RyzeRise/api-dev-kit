@@ -58,7 +58,12 @@ class CliTest {
     Path other = Files.createTempDirectory("atomic-init-other-");
     Files.delete(root.resolve(".atomic-api/contracts/example.yaml"));
     Files.delete(root.resolve(".atomic-api/contracts"));
-    Files.createSymbolicLink(root.resolve(".atomic-api/contracts"), other);
+    try {
+      Files.createSymbolicLink(root.resolve(".atomic-api/contracts"), other);
+    } catch (java.nio.file.FileSystemException e) {
+      org.junit.jupiter.api.Assumptions.assumeFalse(System.getProperty("os.name").startsWith("Windows"), "Windows symlink privilege unavailable: " + e.getReason());
+      throw e;
+    }
     assertEquals(2, run("init", "--repo", root.toString()));
     assertFalse(Files.exists(other.resolve("example.yaml")));
   }
