@@ -36,4 +36,11 @@ class ProfileTest {
         p, Files.readString(p).replace("facadeDefault: throw", "facadeDefault: project-existing"));
     assertThrows(IllegalArgumentException.class, () -> Profile.load(p));
   }
+  @Test
+  void supportsJava21AndExplicitNullFallback() throws Exception {
+    Path p = Fixtures.profile(root);
+    Files.writeString(p, Files.readString(p).replace("targetJava: 8", "targetJava: 21")
+        .replace("facadeDefault: throw", "facadeDefault: return-null"));
+    assertEquals(21, Profile.load(p).targetJava());
+  }
 }
