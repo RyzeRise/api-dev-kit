@@ -157,7 +157,10 @@ public final class Generator {
         StaticJavaParser.parse("package " + fqn.substring(0, fqn.lastIndexOf('.')) + ";\n" + code);
     String old = Files.exists(path) ? Files.readString(path) : null;
     if (old != null) {
-      var previous = StaticJavaParser.parse(old.startsWith("\uFEFF") ? old.substring(1) : old);
+      String source = old.startsWith("\uFEFF") ? old.substring(1) : old;
+      // A file copyright header is independent of the generated implementation.
+      source = source.replaceFirst("(?s)\\A\\s*/\\*\\s*\\*?\\s*Copyright\\b.*?\\*/\\s*", "");
+      var previous = StaticJavaParser.parse(source);
       Contract.require(
           previous.toString().equals(generated.toString()),
           "CONFLICT: existing implementation differs: " + path);
