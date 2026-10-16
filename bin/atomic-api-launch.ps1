@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $toolRoot = Split-Path -Parent $PSScriptRoot
 $jarPath = $env:ATOMIC_API_JAR
 if (-not $jarPath) {
@@ -20,5 +21,5 @@ if (-not $runtime) {
     [Console]::Error.WriteLine('atomic-api requires Java 17 or newer.')
     exit 2
 }
-& $runtime -jar $jarPath @args
+& $runtime '-Dfile.encoding=UTF-8' -jar $jarPath @args
 exit $LASTEXITCODE

@@ -24,4 +24,4 @@ else
   printf '%s\n' 'atomic-api 需要 Java 17 或更高版本，请安装运行环境后重试。' >&2
   exit 2
 fi
-exec "$runtime" -jar "$jar" "$@"
+exec "$runtime" -Dfile.encoding=UTF-8 -jar "$jar" "$@"

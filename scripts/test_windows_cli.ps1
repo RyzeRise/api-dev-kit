@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $toolRoot = Split-Path -Parent $PSScriptRoot
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('atomic cli ' + [Guid]::NewGuid().ToString('N'))
 $installDir = Join-Path $testRoot 'installed command'
@@ -7,8 +8,10 @@ New-Item -ItemType Directory -Path $projectDir -Force | Out-Null
 & (Join-Path $toolRoot 'install.ps1') -Prefix $installDir -Jar (Join-Path $toolRoot 'cli/target/atomic-api-0.1.0.jar')
 Push-Location $projectDir
 try {
-    & atomic-api -h
+    $helpText = & atomic-api -h
     if ($LASTEXITCODE -ne 0) { throw 'atomic-api -h failed' }
+    $currentDirectoryText = -join @([char]0x5f53, [char]0x524d, [char]0x76ee, [char]0x5f55)
+    if (-not (($helpText -join "`n").Contains($currentDirectoryText))) { throw 'UTF-8 command output was lost' }
     & atomic-api init --agent claude
     if ($LASTEXITCODE -ne 0) { throw 'atomic-api init failed' }
     if (-not (Test-Path '.atomic-api/profile.yaml')) { throw 'Project profile missing' }
@@ -23,3 +26,4 @@ try {
     Pop-Location
 }
 Write-Output 'Windows command smoke checks passed.'
+exit 0
