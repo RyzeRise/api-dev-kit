@@ -408,9 +408,10 @@ public final class Generator {
             + contract.models().request().className()
             + " request) throws "
             + type("internalException")
-            + " {throw "
-            + error("Facade not assembled: " + contract.operation())
-            + ";}");
+            + " {"
+            + (profile.facadeDefault().equals("return-null") ? "return null;"
+                : "throw " + error("Facade not assembled: " + contract.operation()) + ";")
+            + "}");
   }
 
   private String getter(String type, String name, String expected) {
