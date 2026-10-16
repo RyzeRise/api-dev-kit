@@ -49,6 +49,8 @@ class GenerationTest {
     assertTrue(text.contains("try {\n"), text);
     assertFalse(text.contains(";return"), text);
     assertFalse(text.contains(";}catch"), text);
+    assertTrue(text.contains("\n        try {\n"), text);
+    assertTrue(text.contains("\n            return builder"), text);
     assertTrue(text.contains("// keep this comment"), text);
     assertTrue(text.contains("public int original() { return 7; }"), text);
     compileAll();
