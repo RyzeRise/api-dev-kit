@@ -155,12 +155,16 @@ public final class Generator {
             : GenerationPlan.safe(index.root(), index.path(index.type(fqn)));
     var generated =
         StaticJavaParser.parse("package " + fqn.substring(0, fqn.lastIndexOf('.')) + ";\n" + code);
+    shortenGeneratedTypes(generated.getTypes().get(0).asClassOrInterfaceDeclaration(), generated.getTypes().get(0));
     String old = Files.exists(path) ? Files.readString(path) : null;
     if (old != null) {
       String source = old.startsWith("\uFEFF") ? old.substring(1) : old;
       // A file copyright header is independent of the generated implementation.
       source = source.replaceFirst("(?s)\\A\\s*/\\*\\s*\\*?\\s*Copyright\\b.*?\\*/\\s*", "");
       var previous = StaticJavaParser.parse(source);
+      shortenGeneratedTypes(previous.getTypes().get(0).asClassOrInterfaceDeclaration(), previous.getTypes().get(0));
+      previous.getImports().sort(Comparator.comparing(Object::toString));
+      generated.getImports().sort(Comparator.comparing(Object::toString));
       Contract.require(
           previous.toString().equals(generated.toString()),
           "CONFLICT: existing implementation differs: " + path);
@@ -206,14 +210,17 @@ public final class Generator {
     owner.addMember(method);
   }
 
-  private MethodDeclaration shortenGeneratedTypes(
-      ClassOrInterfaceDeclaration owner, MethodDeclaration method) {
+  private <N extends Node> N shortenGeneratedTypes(
+      ClassOrInterfaceDeclaration owner, N method) {
     var cu = owner.findCompilationUnit().orElseThrow();
     Set<String> candidates = new LinkedHashSet<>();
     for (var t : method.findAll(ClassOrInterfaceType.class)) {
       String name = t.getNameWithScope();
       if (name.contains(".") && Character.isLowerCase(name.charAt(0))
           && Character.isUpperCase(Contract.simple(name).charAt(0))) candidates.add(name);
+    }
+    for (var annotation : method.findAll(com.github.javaparser.ast.expr.AnnotationExpr.class)) {
+      if (annotation.getNameAsString().contains(".")) candidates.add(annotation.getNameAsString());
     }
     // Static converter/symbol references are expressions rather than type nodes.
     candidates.add(contract.target().converter());
@@ -235,6 +242,12 @@ public final class Generator {
         if (t.getNameWithScope().equals(fqn)) {
           t.setScope((ClassOrInterfaceType) null);
           t.setName(simple);
+          used = true;
+        }
+      }
+      for (var annotation : method.findAll(com.github.javaparser.ast.expr.AnnotationExpr.class)) {
+        if (annotation.getNameAsString().equals(fqn)) {
+          annotation.setName(simple);
           used = true;
         }
       }
@@ -271,9 +284,9 @@ public final class Generator {
       preferred = Character.toLowerCase(simple.charAt(0)) + simple.substring(1);
       while (owner.getFieldByName(preferred).isPresent()) preferred += "_";
     }
-    owner.addMember(
+    owner.addMember(shortenGeneratedTypes(owner,
         StaticJavaParser.parseBodyDeclaration(
-            "@" + type("injectionAnnotation") + " private " + fqn + " " + preferred + ";"));
+            "@" + type("injectionAnnotation") + " private " + fqn + " " + preferred + ";")));
     return preferred;
   }
 
@@ -526,36 +539,30 @@ public final class Generator {
                       || resolved.getAllAncestors().stream()
                           .anyMatch(a -> a.getQualifiedName().equals(contract.target().facade()));
                 });
-    if (!implementsFacade) owner.addImplementedType(contract.target().facade());
+    if (!implementsFacade) owner.getImplementedTypes().add(shortenGeneratedTypes(owner,
+        StaticJavaParser.parseClassOrInterfaceType(contract.target().facade())));
     if (owner.getAnnotations().stream()
         .noneMatch(
             a -> a.getName().getIdentifier().equals(Contract.simple(type("facadeAnnotation")))))
-      owner.addAnnotation(type("facadeAnnotation"));
+      owner.addAnnotation(shortenGeneratedTypes(owner,
+          StaticJavaParser.parseAnnotation("@" + type("facadeAnnotation"))));
     StringBuilder body = new StringBuilder();
     int n = 0;
     for (var step : contract.steps()) {
       String variable = field(owner, step.handler(), step.id() + "ApiHandler");
-      body.append("// ")
-          .append(++n)
-          .append(". run ")
-          .append(step.id())
-          .append(" query\n")
-          .append(step.outputType())
-          .append(' ')
-          .append(stepVariable(step.id()))
-          .append("=this.")
-          .append(variable)
-          .append(".run(")
-          .append(binding(step))
-          .append(");\n");
+      body.append("// ").append(++n).append(". run ").append(step.id()).append(" query\n");
+      if (contract.assembly().mode().equals("direct")) {
+        body.append("return ").append(variable).append(".run(").append(binding(step)).append(");\n");
+      } else {
+        body.append(step.outputType()).append(' ').append(stepVariable(step.id()))
+            .append('=').append(variable).append(".run(").append(binding(step)).append(");\n\n");
+      }
     }
-    if (contract.assembly().mode().equals("direct"))
-      body.append("return ").append(stepVariable(contract.steps().get(0).id())).append(';');
-    else {
+    if (!contract.assembly().mode().equals("direct")) {
       String variable = field(owner, contract.assembly().builder(), "resultBuilder");
       body.append("// end. Assemble the query results of the above ")
           .append(n)
-          .append(" apiHandler.\nreturn this.")
+          .append(" apiHandler.\nreturn ")
           .append(variable)
           .append(".build(request");
       for (var step : contract.steps()) body.append(',').append(stepVariable(step.id()));
