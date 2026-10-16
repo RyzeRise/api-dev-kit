@@ -82,7 +82,7 @@ CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 和包含安装脚�
 
 已有 Delegate 实现外部接口时，生成器解析其准确方法签名，保留 context 等额外参数；请求字段必须能按名字、类型绑定。重载或复杂签名不明确时停止，不猜测。
 
-**0.1.0 边界**：仅支持 profile 的 `facadeDefault: throw`；不改生成模型、不覆盖既有方法、不支持任意绑定表达式、复杂控制流或自动业务实现。Lombok 生成的方法若源码/依赖无法解析，需要补充编译后 classpath，或手工适配。详细规则及未覆盖项见 [使用约定](docs/cli.md)。
+**0.1.0 边界**：profile 支持 `facadeDefault: throw` 或显式 `return-null`；支持 Java 8/11/17/21 目标及完整限定的泛型集合字段；不改生成模型、不覆盖既有方法、不支持任意绑定表达式、复杂控制流或自动业务实现。Lombok 生成的方法若源码/依赖无法解析，需要补充编译后 classpath，或手工适配。详细规则及未覆盖项见 [使用约定](docs/cli.md)。
 
 ## 文档与 Skill
 
