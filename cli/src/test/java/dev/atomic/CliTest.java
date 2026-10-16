@@ -49,6 +49,27 @@ class CliTest {
   }
 
   @Test
+  void initReservesWorkDirectoryAndCommandsKeepMetadataRootClean() throws Exception {
+    assertEquals(0, run("demo", "--repo", root.toString()));
+    assertEquals(0, run("init", "--repo", root.toString(), "--agent", "codex"));
+    assertTrue(Files.readString(root.resolve(".atomic-api/.gitignore")).contains("work/"));
+    assertTrue(Files.exists(root.resolve(".atomic-api/work/.gitignore")));
+    for (String skill : java.util.List.of(
+        ".atomic-api/skills/atomic-api-design/SKILL.md",
+        ".agents/skills/atomic-api-design/SKILL.md")) {
+      assertTrue(Files.readString(root.resolve(skill)).contains(".atomic-api/work/<operation>/"));
+    }
+    String contract = root.resolve("contracts/single-handler.yaml").toString();
+    assertEquals(0, run("generate", "--repo", root.toString(), "--contract", contract, "--apply"));
+    assertEquals(0, run("check", "--repo", root.toString(), "--contract", contract, "--format", "json"));
+    assertEquals(0, run("init", "--repo", root.toString()));
+    try (var files = Files.list(root.resolve(".atomic-api"))) {
+      assertEquals(java.util.Set.of(".gitignore", "profile.yaml", "contracts", "schemas", "skills", "work"),
+          files.map(p -> p.getFileName().toString()).collect(java.util.stream.Collectors.toSet()));
+    }
+  }
+
+  @Test
   void initDiscoversFrameworkAndRejectsSymlinkWrites() throws Exception {
     Fixtures.framework(root);
     assertEquals(0, run("init", "--repo", root.toString()));
