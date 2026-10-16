@@ -17,6 +17,20 @@ class GenerationTest {
   }
 
   @Test
+  void generatesExplicitNullFallbackAndKeepsBusinessPlaceholder() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    var original = Profile.load(Fixtures.profile(root));
+    var profile = new Profile(1, 21, original.types(), "return-null", original.layout());
+    new Generator().plan(root, contract(false), profile).apply();
+    var index = SourceIndex.scan(root);
+    var method = index.type(contract(false).target().facade()).getMethodsByName(contract(false).operation()).get(0);
+    assertTrue(method.getBody().orElseThrow().toString().contains("return null;"));
+    assertFalse(method.getBody().orElseThrow().toString().contains("throw"));
+    assertTrue(index.type(contract(false).steps().get(0).handler()).toString().contains("ATOMIC_API_UNIMPLEMENTED"));
+  }
+
+  @Test
   void singleEndToEndAndIdempotency() throws Exception {
     generateAndCompile(false);
   }
