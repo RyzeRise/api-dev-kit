@@ -97,7 +97,12 @@ class GenerationTest {
     Fixtures.framework(root);
     Fixtures.external(root, false);
     Path outside = Files.createTempDirectory("atomic-api-outside-");
-    Files.createSymbolicLink(root.resolve("function-sdk"), outside);
+    try {
+      Files.createSymbolicLink(root.resolve("function-sdk"), outside);
+    } catch (java.nio.file.FileSystemException e) {
+      org.junit.jupiter.api.Assumptions.assumeFalse(System.getProperty("os.name").startsWith("Windows"), "Windows symlink privilege unavailable: " + e.getReason());
+      throw e;
+    }
     assertThrows(
         IllegalArgumentException.class,
         () -> new Generator().plan(root, contract(false), Profile.load(Fixtures.profile(root))));
@@ -340,12 +345,12 @@ class GenerationTest {
             + " getMessage();}}");
     try (var walk = Files.walk(root)) {
       for (Path file : walk.filter(f -> f.toString().endsWith(".java")).toList()) {
-        if (file.toString().endsWith("framework/OpsApiException.java")) continue;
+        if (file.toString().replace('\\', '/').endsWith("framework/OpsApiException.java")) continue;
         String code =
             Files.readString(file)
                 .replace(
                     "com.example.framework.OpsApiException", "com.example.other.OpsApiException");
-        if (file.toString().endsWith("framework/ApiHandler.java"))
+        if (file.toString().replace('\\', '/').endsWith("framework/ApiHandler.java"))
           code = code.replace("throws OpsApiException", "throws com.example.other.OpsApiException");
         Files.writeString(file, code);
       }
