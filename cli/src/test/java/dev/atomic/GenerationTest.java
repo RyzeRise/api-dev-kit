@@ -16,6 +16,87 @@ class GenerationTest {
         Path.of(multi ? "../examples/multi-handler.yaml" : "../examples/single-handler.yaml"));
   }
 
+  Profile registrationProfile() throws Exception {
+    Path file=Fixtures.profile(root);
+    Files.writeString(file, Files.readString(file)+"\ndisabledFacade:\n  configuration: com.example.sdk.DisabledConfiguration\n  mapField: disableMap\n");
+    return Profile.load(file);
+  }
+
+  void registrationFixture(boolean existing) throws Exception {
+    Fixtures.write(root,"com/example/sdk/DisabledConfiguration",
+        "package com.example.sdk;\nimport java.util.Map;\nimport java.util.HashMap;\npublic class DisabledConfiguration {\n"
+        + "    private final Map<Class<?>,Object> disableMap = new HashMap<>();\n"
+        + "    public DisabledConfiguration() {\n"
+        + (existing ? "        disableMap.put(com.example.sdk.ResourceFacade.class, new com.example.sdk.ResourceFacade() {});\n" : "")
+        + "    }\n    public int original() { return 7; }\n}\n");
+  }
+
+  @Test
+  void disabledRegistrationUsesImportsAndIsIdempotent() throws Exception {
+    Fixtures.framework(root); Fixtures.external(root,false); registrationFixture(false);
+    var c=contract(false); var p=registrationProfile();
+    new Generator().plan(root,c,p).apply();
+    var index=SourceIndex.scan(root); var owner=index.type("com.example.sdk.DisabledConfiguration");
+    String text=Files.readString(index.path(owner));
+    assertTrue(text.contains("disableMap.put(ResourceFacade.class, new ResourceFacade()"), text);
+    assertTrue(text.contains("public int original() { return 7; }"), text);
+    compileAll(); assertTrue(new Generator().plan(root,c,p).changes().isEmpty());
+  }
+
+  @Test
+  void existingQualifiedDisabledRegistrationIsShortenedWithoutDuplication() throws Exception {
+    Fixtures.framework(root); Fixtures.external(root,false); registrationFixture(true);
+    var c=contract(false); var p=registrationProfile();
+    new Generator().plan(root,c,p).apply();
+    var index=SourceIndex.scan(root); var owner=index.type("com.example.sdk.DisabledConfiguration");
+    assertEquals(1,owner.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class).stream().filter(m->m.getNameAsString().equals("put")).count());
+    assertFalse(owner.toString().contains("com.example.sdk.ResourceFacade"), owner.toString());
+    compileAll(); assertTrue(new Generator().plan(root,c,p).changes().isEmpty());
+  }
+
+  @Test
+  void customizedDisabledImplementationIsNeverOverwritten() throws Exception {
+    Fixtures.framework(root); Fixtures.external(root,false); registrationFixture(true);
+    Path file=root.resolve("src/main/java/com/example/sdk/DisabledConfiguration.java");
+    String customized=Files.readString(file).replace("new com.example.sdk.ResourceFacade() {}",
+        "new com.example.sdk.ResourceFacade() { public String marker() { return \"keep\"; } }");
+    Files.writeString(file,customized);
+    var p=registrationProfile();
+    var error=assertThrows(IllegalArgumentException.class,()->new Generator().plan(root,contract(false),p));
+    assertTrue(error.getMessage().contains("customized"),error.toString());
+    assertEquals(customized,Files.readString(file));
+  }
+
+  @Test
+  void generatedImportsJoinTheirExistingGroups() throws Exception {
+    Fixtures.framework(root); Fixtures.external(root, false);
+    Fixtures.write(root, "com/example/service/ResourceDelegateImpl",
+        "package com.example.service;\n\nimport com.example.framework.OpsComponentManagement;\n\nimport java.util.Objects;\n\n// keep class comment\npublic class ResourceDelegateImpl { public int original() { return 7; } }\n");
+    var c = contract(false); var p = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root,c,p).apply();
+    var index = SourceIndex.scan(root);
+    String text = Files.readString(index.path(index.type(c.target().delegate())));
+    assertTrue(text.indexOf("import " + c.target().converter()) < text.indexOf("import java.util.Objects"), text);
+    assertTrue(text.contains("import java.util.Locale;\nimport java.util.Objects;"), text);
+    assertTrue(text.contains("// keep class comment"), text);
+    assertTrue(text.contains("public int original() { return 7; }"), text);
+    compileAll(); assertTrue(new Generator().plan(root,c,p).changes().isEmpty());
+  }
+
+  @Test
+  void existingGeneratedImportsAreReorderedWithoutChangingMethods() throws Exception {
+    Fixtures.framework(root); Fixtures.external(root, false);
+    var c=contract(false); var p=Profile.load(Fixtures.profile(root));
+    new Generator().plan(root,c,p).apply();
+    var index=SourceIndex.scan(root); Path file=index.path(index.type(c.target().delegate()));
+    String original=Files.readString(file);
+    String line="import "+c.target().converter()+";";
+    String shuffled=original.replace(line+"\n", "").replace("public class ResourceDelegateImpl", line+"\n\npublic class ResourceDelegateImpl");
+    Files.writeString(file,shuffled);
+    new Generator().plan(root,c,p).apply();
+    assertEquals(original,Files.readString(file));
+  }
+
   @Test
   void singleFacadeMatchesLdpReference() throws Exception {
     Fixtures.framework(root);
