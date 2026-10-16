@@ -200,7 +200,8 @@ public final class Generator {
       }
     }
     // Format new members before preserving their tokens in the existing source.
-    method = StaticJavaParser.parseMethodDeclaration(method.toString());
+    method = StaticJavaParser.parseMethodDeclaration(
+        "    " + method.toString().replace("\r\n", "\n").replace("\n", "\n    "));
     LexicalPreservingPrinter.setup(method);
     owner.addMember(method);
   }
