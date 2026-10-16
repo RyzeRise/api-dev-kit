@@ -56,7 +56,8 @@ final class Initializer {
     assets.put(
         ".atomic-api/schemas/api-contract.schema.json",
         resource("/schemas/api-contract.schema.json"));
-    assets.put(".atomic-api/.gitignore", "reports/\ncache/\n");
+    assets.put(".atomic-api/.gitignore", "reports/\ncache/\nwork/\n");
+    assets.put(".atomic-api/work/.gitignore", "*\n");
     for (String file :
         List.of(
             "SKILL.md",
