@@ -23,7 +23,7 @@ contract 描述设计意图；源码描述当前实现。新增 API 时生成器
 
 sourceRoot 是仓库内相对源码根目录，与 package 分开；不能指向仓库外。缺失目标文件的创建需要 profile 给出明确模块定位。
 
-字段类型使用 Java 类型字符串；第一版语义验证只允许基本类型、普通完整类名及数组。不执行类型字符串和字段路径中的任何表达式。泛型集合等复杂类型在扩展 AST 类型验证后再支持。
+字段类型使用 Java 类型字符串；语义验证使用 JavaParser AST，允许基本类型、完整类名、数组及完整限定的泛型集合，例如 java.util.List<java.lang.String>。拒绝简单类名、通配符、泛型基本类型实参和表达式。不执行类型字符串和字段路径中的任何表达式。
 
 请求字段可显式设置 diagnostic: true，将其作为 Delegate 异常中的定位标识。默认 false，不自动序列化整个请求；不要将凭据标为 diagnostic。示例地址字段已明确选择。required 与 diagnostic 相互独立。
 
