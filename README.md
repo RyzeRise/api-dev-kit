@@ -8,19 +8,17 @@
 
 一次安装后，在业务项目根目录直接使用 `atomic-api`。源码安装需要 JDK 17、Maven 3.8+，安装脚本负责构建和命令注册；生成的业务代码使用 Java 8 兼容语法。
 
+进入包含安装脚本的工具目录，按操作系统执行安装。
+
 Windows PowerShell：
 
 ```powershell
-git clone https://github.com/RyzeRise/atomic-api-pattern.git
-cd atomic-api-pattern
 ./install.ps1
 ```
 
 macOS / Linux：
 
 ```bash
-git clone https://github.com/RyzeRise/atomic-api-pattern.git
-cd atomic-api-pattern
 sh install.sh
 ```
 
