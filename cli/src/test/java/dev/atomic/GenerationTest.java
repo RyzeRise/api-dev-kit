@@ -17,6 +17,48 @@ class GenerationTest {
   }
 
   @Test
+  void singleFacadeMatchesLdpReference() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    var c = contract(false);
+    var p = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, p).apply();
+    var index = SourceIndex.scan(root);
+    var owner = index.type(c.target().implementation());
+    var body = owner.getMethodsByName(c.operation()).get(0).getBody().orElseThrow();
+    assertEquals(1, body.getStatements().size(), body.toString());
+    assertTrue(body.getStatement(0).isReturnStmt(), body.toString());
+    for (var fqn : List.of(c.target().implementation(), c.steps().get(0).handler(), c.models().request().className())) {
+      var type = index.type(fqn);
+      for (var t : type.findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class))
+        assertFalse(t.getNameWithScope().startsWith("com.example."), type.toString());
+      for (var annotation : type.findAll(com.github.javaparser.ast.expr.AnnotationExpr.class))
+        assertFalse(annotation.getNameAsString().contains("."), type.toString());
+    }
+    compileAll();
+    assertTrue(new Generator().plan(root, c, p).changes().isEmpty());
+  }
+
+  @Test
+  void multiFacadeKeepsOrderedHandlersAndBuilderWithShortTypes() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, true);
+    var c = contract(true);
+    var p = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, p).apply();
+    var index = SourceIndex.scan(root);
+    var owner = index.type(c.target().implementation());
+    var calls = owner.getMethodsByName(c.operation()).get(0)
+        .findAll(com.github.javaparser.ast.expr.MethodCallExpr.class).stream()
+        .map(m -> m.getNameAsString()).filter(n -> n.equals("run") || n.equals("build")).toList();
+    assertEquals(List.of("run", "run", "build"), calls);
+    for (var t : owner.findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class))
+      assertFalse(t.getNameWithScope().startsWith("com.example."), owner.toString());
+    compileAll();
+    assertTrue(new Generator().plan(root, c, p).changes().isEmpty());
+  }
+
+  @Test
   void generatesExplicitNullFallbackAndKeepsBusinessPlaceholder() throws Exception {
     Fixtures.framework(root);
     Fixtures.external(root, false);
@@ -364,13 +406,13 @@ class GenerationTest {
     new Generator().plan(root, contract(false), p).apply();
     Path impl = root.resolve("src/main/java/com/example/app/ResourceFacadeImpl.java");
     String code = Files.readString(impl);
-    assertTrue(code.contains("= this.resourceApiHandler.run(request);"));
+    assertTrue(code.contains("return resourceApiHandler.run(request);"));
     Files.writeString(
         impl,
         code.replace(
-            "= this.resourceApiHandler.run(request);",
-            "= null; java.util.concurrent.Callable<com.example.sdk.QueryResourceByAddressResultDto>"
-                + " delayed = () -> this.resourceApiHandler.run(request);"));
+            "return resourceApiHandler.run(request);",
+            "java.util.concurrent.Callable<com.example.sdk.QueryResourceByAddressResultDto>"
+                + " delayed = () -> resourceApiHandler.run(request); return null;"));
     Path delegate = root.resolve("src/main/java/com/example/service/ResourceDelegateImpl.java");
     code = Files.readString(delegate);
     assertTrue(
