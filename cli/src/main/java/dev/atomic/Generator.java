@@ -3,6 +3,9 @@ package dev.atomic;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.*;
 import com.github.javaparser.ast.body.*;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.printer.lexicalpreservation.LexicalPreservingPrinter;
 import java.nio.file.*;
 import java.util.*;
@@ -167,6 +170,8 @@ public final class Generator {
 
   private void addMethod(ClassOrInterfaceDeclaration owner, String source) {
     MethodDeclaration method = StaticJavaParser.parseMethodDeclaration(source);
+    var parameterTypes = method.getParameters().stream().map(p -> p.getType().asString()).toList();
+    shortenGeneratedTypes(owner, method);
     var sameName = owner.getMethodsByName(method.getNameAsString());
     for (var existing : sameName) {
       if (existing.getParameters().size() != method.getParameters().size()) continue;
@@ -178,11 +183,12 @@ public final class Generator {
         } catch (RuntimeException e) {
           actual = existing.getParameter(i).getType().asString();
         }
-        same &= actual.equals(method.getParameter(i).getType().asString());
+        same &= actual.equals(parameterTypes.get(i));
       }
       if (same) {
         Contract.require(
-            existing.toString().replace("\r\n", "\n").equals(method.toString().replace("\r\n", "\n")),
+            shortenGeneratedTypes(owner, existing.clone()).toString().replace("\r\n", "\n")
+                .equals(method.toString().replace("\r\n", "\n")),
             "CONFLICT: existing method "
                 + owner.getNameAsString()
                 + "."
@@ -190,9 +196,56 @@ public final class Generator {
         return;
       }
     }
-    // Preserve the parsed token stream for inserted default methods too.
+    // Format new members before preserving their tokens in the existing source.
+    method = StaticJavaParser.parseMethodDeclaration(method.toString());
     LexicalPreservingPrinter.setup(method);
     owner.addMember(method);
+  }
+
+  private MethodDeclaration shortenGeneratedTypes(
+      ClassOrInterfaceDeclaration owner, MethodDeclaration method) {
+    var cu = owner.findCompilationUnit().orElseThrow();
+    Set<String> candidates = new LinkedHashSet<>();
+    for (var t : method.findAll(ClassOrInterfaceType.class)) {
+      String name = t.getNameWithScope();
+      if (name.contains(".") && Character.isLowerCase(name.charAt(0))
+          && Character.isUpperCase(Contract.simple(name).charAt(0))) candidates.add(name);
+    }
+    // Static converter/symbol references are expressions rather than type nodes.
+    candidates.add(contract.target().converter());
+    candidates.add("java.util.Locale");
+    for (String fqn : candidates) {
+      String simple = Contract.simple(fqn);
+      boolean conflict = cu.getImports().stream().anyMatch(i ->
+          !i.isStatic() && (i.isAsterisk()
+              || (Contract.simple(i.getNameAsString()).equals(simple)
+                  && !i.getNameAsString().equals(fqn))));
+      conflict |= cu.findAll(TypeDeclaration.class).stream()
+          .anyMatch(t -> t.getNameAsString().equals(simple));
+      conflict |= index.types().keySet().stream().anyMatch(name ->
+          name.equals(cu.getPackageDeclaration().map(p -> p.getNameAsString() + ".").orElse("")
+              + simple) && !name.equals(fqn));
+      if (conflict) continue;
+      boolean used = false;
+      for (var t : method.findAll(ClassOrInterfaceType.class)) {
+        if (t.getNameWithScope().equals(fqn)) {
+          t.setScope((ClassOrInterfaceType) null);
+          t.setName(simple);
+          used = true;
+        }
+      }
+      for (var expression : method.findAll(FieldAccessExpr.class)) {
+        if (expression.getScope().toString().equals(fqn)) {
+          expression.setScope(new NameExpr(simple));
+          used = true;
+        }
+      }
+      if (used && !fqn.substring(0, fqn.lastIndexOf('.')).equals("java.lang")
+          && !fqn.equals(cu.getPackageDeclaration().map(p -> p.getNameAsString() + ".").orElse("") + simple)) {
+        cu.addImport(fqn);
+      }
+    }
+    return method;
   }
 
   private String field(ClassOrInterfaceDeclaration owner, String fqn, String preferred) {
