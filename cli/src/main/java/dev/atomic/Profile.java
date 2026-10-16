@@ -8,7 +8,14 @@ public record Profile(
     int targetJava,
     Map<String, String> types,
     String facadeDefault,
-    List<Layout> layout) {
+    List<Layout> layout,
+    DisabledFacade disabledFacade) {
+  public record DisabledFacade(String configuration, String mapField) {}
+
+  public Profile(int version, int targetJava, Map<String,String> types,
+      String facadeDefault, List<Layout> layout) {
+    this(version, targetJava, types, facadeDefault, layout, null);
+  }
   public record Layout(String packagePrefix, String sourceRoot, String directoryPrefix) {}
 
   static final List<String> KEYS =
@@ -38,6 +45,10 @@ public record Profile(
     Contract.require(
         Set.of("throw", "return-null").contains(facadeDefault == null ? "" : facadeDefault),
         "Unsupported facadeDefault: use throw or return-null");
+    if (disabledFacade != null) {
+      Contract.fqn(disabledFacade.configuration());
+      Contract.id(disabledFacade.mapField());
+    }
     Contract.require(layout != null && !layout.isEmpty(), "Profile layout missing");
     for (Layout l : layout) {
       Contract.fqn(l.packagePrefix);
