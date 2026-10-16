@@ -40,6 +40,7 @@ public final class Generator {
     if (c.assembly().mode().equals("builder")) builder();
     converter();
     facade();
+    disabledFacade();
     implementation();
     delegate();
     List<GenerationPlan.Change> changes = new ArrayList<>();
@@ -49,6 +50,7 @@ public final class Generator {
           old == null
               ? entry.getValue().toString()
               : LexicalPreservingPrinter.print(entry.getValue());
+      text = ImportLayout.format(text);
       text = text.replace("\r\n", "\n");
       if (old != null && old.contains("\r\n")) text = text.replace("\n", "\r\n");
       if (old != null && old.startsWith("\uFEFF")) text = "\uFEFF" + text;
@@ -525,6 +527,54 @@ public final class Generator {
     return index.type(model.className()) == null
         ? "get" + Contract.cap(fieldName) + "()"
         : getter(model.className(), fieldName, field.type());
+  }
+
+  private boolean isFacadeType(com.github.javaparser.ast.type.Type value) {
+    if (!value.isClassOrInterfaceType()) return false;
+    String name = value.asClassOrInterfaceType().getNameWithScope();
+    if (name.equals(contract.target().facade())) return true;
+    try {
+      return value.resolve().asReferenceType().getQualifiedName().equals(contract.target().facade());
+    } catch (RuntimeException unresolved) {
+      var cu = value.findCompilationUnit().orElseThrow();
+      String fqn = contract.target().facade();
+      return name.equals(Contract.simple(fqn)) &&
+          (cu.getImports().stream().anyMatch(i -> !i.isStatic() && !i.isAsterisk() && i.getNameAsString().equals(fqn))
+              || cu.getPackageDeclaration().map(p -> (p.getNameAsString()+"."+name).equals(fqn)).orElse(false));
+    }
+  }
+
+  private void disabledFacade() {
+    var registration = profile.disabledFacade();
+    if (registration == null) return;
+    Contract.require(index.type(registration.configuration()) != null,
+        "INCOMPLETE: disabled Facade configuration missing: " + registration.configuration());
+    var owner = target(registration.configuration(), false);
+    Contract.require(owner.getFieldByName(registration.mapField()).isPresent(),
+        "INCOMPLETE: disabled Facade map field missing");
+    String scope = registration.mapField();
+    var matches = owner.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class).stream()
+        .filter(m -> m.getNameAsString().equals("put") && m.getArguments().size()==2
+            && m.getScope().map(x -> x.toString().equals(scope) || x.toString().equals("this."+scope)).orElse(false)
+            && m.getArgument(0).isClassExpr() && isFacadeType(m.getArgument(0).asClassExpr().getType()))
+        .toList();
+    Contract.require(matches.size()<2, "CONFLICT: duplicate disabled Facade registration");
+    if (!matches.isEmpty()) {
+      var call = matches.get(0);
+      Contract.require(call.getArgument(1).isObjectCreationExpr(), "CONFLICT: disabled Facade implementation is customized");
+      var creation = call.getArgument(1).asObjectCreationExpr();
+      Contract.require(isFacadeType(creation.getType()) && creation.getArguments().isEmpty()
+          && creation.getAnonymousClassBody().map(List::isEmpty).orElse(false),
+          "CONFLICT: disabled Facade implementation is customized");
+      shortenGeneratedTypes(owner, call);
+      return;
+    }
+    var constructors = owner.getConstructors().stream().filter(c -> c.getParameters().isEmpty()).toList();
+    Contract.require(constructors.size()==1, "INCOMPLETE: explicit no-argument disabled Facade constructor required");
+    var statement = StaticJavaParser.parseStatement(scope + ".put(" + contract.target().facade()
+        + ".class, new " + contract.target().facade() + "() {});");
+    shortenGeneratedTypes(owner, statement);
+    constructors.get(0).getBody().addStatement(statement);
   }
 
   private void implementation() {
