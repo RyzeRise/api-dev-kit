@@ -16,8 +16,31 @@ jobs:
           cache: maven
           cache-dependency-path: cli/pom.xml
       - run: mvn -B -f cli/pom.xml verify
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p test_launcher.py -v
+      - run: python scripts/package_cli.py
       - uses: actions/upload-artifact@v4
         with:
           name: atomic-api-jar
           path: cli/target/atomic-api-0.1.0.jar
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: atomic-api-cli
+          path: dist/atomic-api-cli.zip
+          if-no-files-found: error
+  windows-command:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: cli/pom.xml
+      - run: mvn -B -f cli/pom.xml package -Dmaven.test.skip=true
+      - shell: powershell
+        run: ./scripts/test_windows_cli.ps1

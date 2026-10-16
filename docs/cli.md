@@ -1,8 +1,11 @@
 # CLI 使用约定
 
-构建：`mvn -f cli/pom.xml package`。下文 atomic-api 表示 `java -jar cli/target/atomic-api-0.1.0.jar`。
+安装：源码仓库运行 `sh install.sh`（macOS/Linux）或 `./install.ps1`（Windows PowerShell）。安装脚本将 atomic-api 注册为用户命令；日常无需输入 Java 启动命令。
 
 ```bash
+atomic-api -h
+atomic-api init
+atomic-api init --agent codex
 atomic-api demo --repo <empty-directory>
 atomic-api generate --repo <path> --contract <api.yaml> --profile <framework.yaml> --dry-run
 atomic-api generate --repo <path> --contract <api.yaml> --profile <framework.yaml> --apply
@@ -10,7 +13,21 @@ atomic-api check --repo <path>
 atomic-api check --repo <path> --contract <api.yaml> --format json
 ```
 
-generate 默认 dry-run；`--dry-run` 与 `--apply` 互斥。不支持隐式覆盖已有业务实现，不提供 force 覆盖开关。
+所有命令的 --repo 默认当前目录。generate 默认 dry-run；`--dry-run` 与 `--apply` 互斥。不支持隐式覆盖已有业务实现，不提供 force 覆盖开关。
+
+## 项目初始化
+
+init 默认只在 `.atomic-api/` 内创建文件：`profile.yaml`、`contracts/example.yaml`、`schemas/api-contract.schema.json`、`skills/atomic-api-design/`（含完整 references）以及忽略 reports/cache 的内部 .gitignore。所有既有文件保留，写入前检查全部目标路径并拒绝符号链接。
+
+已有根目录旧配置时，init 校验并原样复制到新目录，保留原文件；旧配置无效时停止，不用示例遮蔽。没有旧配置时尝试识别唯一的框架类型和单一源码根；无法确认时生成标注“待配置”的 profile 草稿并说明原因，不假定示例配置适合当前项目。示例 contract 也需要按需求修改。
+
+运行时优先使用 `.atomic-api/profile.yaml`，没有时兼容旧的 `atomic-api-profile.yaml`；显式 --profile 优先级最高。相对 contract/profile 参数以当前工作目录解析，source-root 以 --repo 解析。
+
+可选 `init --agent codex|claude|cursor` 额外复制 Skill 到 `.agents/skills/`、`.claude/skills/`、`.cursor/skills/`，以便相应代理发现。默认 none 仅在 `.atomic-api/skills/` 保存原件，需要在代理中明确读取此路径。重新 init 保留两处已有 Skill，不自动覆盖用户定制版本，也不创建代理规则文件。
+
+目录约定核对于 2026-10-16：[Codex](https://developers.openai.com/blog/skills-agents-sdk)、[Claude Code](https://code.claude.com/docs/en/skills)、[Cursor](https://cursor.com/docs/skills)。`.skills/` 不是这些工具统一采用的项目目录。
+
+安装脚本默认使用用户目录；shell 版把 PATH 写入当前 shell 对应的 .zshrc/.bashrc/.profile，PowerShell 版更新用户 PATH。--prefix（PowerShell -Prefix）可以指定安装位置，--jar（PowerShell -Jar）可使用现有构建产物。启动器优先 JAVA_HOME，其次 PATH；保留参数边界和退出码。运行仍需要 Java 17+，该依赖由命令入口封装。
 
 profile 是项目级框架适配，不是 API 登记表。自动识别唯一时可省略；不唯一时报告候选并退出。
 

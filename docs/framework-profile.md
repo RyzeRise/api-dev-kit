@@ -1,6 +1,6 @@
 # 项目级 Framework Profile
 
-profile 解决“这个项目采用哪些框架类型、源码放在哪里”，不登记 API。generate 自动读取目标根的 atomic-api-profile.yaml，或通过 --profile 指定；明确指定的文件不存在时失败，不静默改用自动识别。
+profile 解决“这个项目采用哪些框架类型、源码放在哪里”，不登记 API。init 在项目的 `.atomic-api/profile.yaml` 创建配置；generate/check 优先读取它，没有时兼容根目录旧的 atomic-api-profile.yaml，也可通过 --profile 指定。明确指定的文件不存在时失败，不静默改用自动识别。
 
 ```yaml
 version: 1

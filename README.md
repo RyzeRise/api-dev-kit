@@ -6,12 +6,49 @@
 
 ## 快速试用
 
-构建需要 JDK 17、Maven 3.8+；运行需要 Java 17。生成代码使用 Java 8 兼容语法。
+一次安装后，在业务项目根目录直接使用 `atomic-api`。源码安装需要 JDK 17、Maven 3.8+，安装脚本负责构建和命令注册；生成的业务代码使用 Java 8 兼容语法。
+
+Windows PowerShell：
+
+```powershell
+git clone https://github.com/RyzeRise/atomic-api-pattern.git
+cd atomic-api-pattern
+./install.ps1
+```
+
+macOS / Linux：
 
 ```bash
-mvn -f cli/pom.xml clean package
-java -jar cli/target/atomic-api-0.1.0.jar --help
-java -jar cli/target/atomic-api-0.1.0.jar demo --repo ../atomic-api-demo
+git clone https://github.com/RyzeRise/atomic-api-pattern.git
+cd atomic-api-pattern
+sh install.sh
+```
+
+安装到用户目录，无需管理员权限；安装后打开新终端。安装脚本也接受已构建产物（PowerShell `-Jar <path>`，shell `--jar <path>`），此时无需 Maven。日常使用不需要输入 Java 命令。
+
+进入业务项目根目录：
+
+```bash
+atomic-api -h
+atomic-api init
+atomic-api check --format json
+```
+
+`init` 默认只创建 `.atomic-api/`：配置为 `.atomic-api/profile.yaml`，示例为 `.atomic-api/contracts/example.yaml`，Skill 为 `.atomic-api/skills/atomic-api-design/`。无法自动识别框架时生成明确标注的待配置草稿，使用前核对。再次 init 保留已有文件。
+
+需要代码代理自动发现 Skill 时，可显式选择：
+
+```bash
+atomic-api init --agent codex
+# 或 --agent claude / --agent cursor
+```
+
+此选项会额外复制完整 Skill 到对应项目目录（Codex `.agents/skills/`、Claude `.claude/skills/`、Cursor `.cursor/skills/`）。默认 init 不创建这些目录，不修改已有 AGENTS.md 或 CLAUDE.md。具体接入见 [CLI 使用约定](docs/cli.md)。
+
+## 在独立目录试用
+
+```bash
+atomic-api demo --repo ../atomic-api-demo
 ```
 
 demo 仅接受空目录，创建虚构框架、外部响应模型与两份 contract，不连接真实服务。
@@ -19,15 +56,15 @@ demo 仅接受空目录，创建虚构框架、外部响应模型与两份 contr
 预览并生成单 Handler API：
 
 ```bash
-java -jar cli/target/atomic-api-0.1.0.jar generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/single-handler.yaml
-java -jar cli/target/atomic-api-0.1.0.jar generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/single-handler.yaml --apply
+atomic-api generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/single-handler.yaml
+atomic-api generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/single-handler.yaml --apply
 ```
 
 生成多 Handler API，再检查两条链路并编译示例：
 
 ```bash
-java -jar cli/target/atomic-api-0.1.0.jar generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/multi-handler.yaml --apply
-java -jar cli/target/atomic-api-0.1.0.jar check --repo ../atomic-api-demo --format json
+atomic-api generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/multi-handler.yaml --apply
+atomic-api check --repo ../atomic-api-demo --format json
 mvn -f ../atomic-api-demo/pom.xml test
 ```
 
@@ -35,12 +72,12 @@ mvn -f ../atomic-api-demo/pom.xml test
 
 检查会显示 `readiness=SCAFFOLD`，因为 Handler 底层调用和多结果 Builder 明确抛出 `ATOMIC_API_UNIMPLEMENTED` 异常，需要补充业务。退出 0 只表示当前结构检查没有 ERROR/INCOMPLETE，不能证明业务完成。
 
-CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 构建产物；下载后用 `java -jar <jar路径>` 运行。以工作流实际成功状态为准。
+CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 和包含安装脚本的 `atomic-api-cli` 构建产物。以工作流实际成功状态为准。
 
 ## 用于实际项目
 
 1. 复制一份示例 contract，填写真实操作、请求/响应、已有外部模型和 Handler 步骤。
-2. 参考 demo 的 `atomic-api-profile.yaml` 配置框架类型和模块布局。profile 是项目级配置，不登记 API。
+2. 使用 init 创建的 `.atomic-api/profile.yaml` 配置框架类型和模块布局。profile 是项目级配置，不登记 API；仍兼容旧的根目录 `atomic-api-profile.yaml`。
 3. 先 dry-run 审阅 diff。目标方法已有业务实现时报告 CONFLICT，不覆盖。
 4. 需要依赖类型时通过多个 `--classpath <jar>` 提供；非标准源码根通过 `--source-root <目录>` 指定。
 5. 应用后补充底层业务、字段汇总及测试，再按实际项目的构建流程验证。
@@ -59,7 +96,7 @@ CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 构建产物；下�
 - [Schema](schemas/api-contract.schema.json)
 - [单 Handler](examples/single-handler.yaml)、[多 Handler](examples/multi-handler.yaml)
 
-使用 Skill 时保留本仓库，按 Skill 中流程定位 CLI；单独复制 Skill 文件夹不会自动携带构建后的 JAR。
+Skill 已随 CLI 打包，`atomic-api init` 可直接安装到项目。Skill 使用 PATH 中的 atomic-api 命令，无需保留工具源码仓库的绝对路径。
 
 ## 测试
 

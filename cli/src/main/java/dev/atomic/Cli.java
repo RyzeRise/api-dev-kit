@@ -11,19 +11,26 @@ public final class Cli {
 
   public static int run(String[] args, PrintStream out, PrintStream err) {
     try {
-      if (args.length == 0 || args[0].equals("--help") || args[0].equals("help")) {
+      if (args.length == 0
+          || Arrays.asList(args).contains("--help")
+          || Arrays.asList(args).contains("-h")
+          || args[0].equals("help")) {
         out.println(
             "atomic-api 0.1.0\n"
-                + "  demo --repo <empty-directory>\n"
-                + "  generate --repo <path> --contract <api.yaml> [--profile <framework.yaml>]"
+                + "  atomic-api init [--agent codex|claude|cursor|none]\n"
+                + "  atomic-api demo --repo <empty-directory>\n"
+                + "  atomic-api generate --contract <api.yaml> [--profile <framework.yaml>]"
                 + " [--dry-run | --apply]\n"
-                + "  check --repo <path> [--contract <api.yaml>] [--format text|json]"
+                + "  atomic-api check [--contract <api.yaml>] [--format text|json]"
                 + " [--warnings-as-errors]\n"
                 + "  source discovery: [--source-root <path>]... [--classpath <jar>]...\n"
+                + "所有命令默认在当前目录运行，可用 --repo <path> 指定项目。\n"
+                + "init 的配置、contract、Skill 均放入 .atomic-api/；--agent 可额外安装项目 Skill。\n"
                 + "生成默认 dry-run。业务占位会抛明确异常，检查结果为 SCAFFOLD。");
         return 0;
       }
-      Contract.require(Set.of("demo", "generate", "check").contains(args[0]), "Unknown command");
+      Contract.require(
+          Set.of("init", "demo", "generate", "check").contains(args[0]), "Unknown command");
       Map<String, String> options = new HashMap<>();
       Set<String> flags = new HashSet<>();
       List<Path> roots = new ArrayList<>(), jars = new ArrayList<>();
@@ -34,7 +41,14 @@ public final class Cli {
           continue;
         }
         Contract.require(
-            Set.of("--repo", "--contract", "--profile", "--format", "--source-root", "--classpath")
+            Set.of(
+                        "--repo",
+                        "--contract",
+                        "--profile",
+                        "--format",
+                        "--source-root",
+                        "--classpath",
+                        "--agent")
                     .contains(key)
                 && i + 1 < args.length,
             "Unknown/missing argument: " + key);
@@ -43,16 +57,39 @@ public final class Cli {
         else if (key.equals("--classpath")) jars.add(Path.of(value));
         else Contract.require(options.putIfAbsent(key, value) == null, "Duplicate option: " + key);
       }
-      Contract.require(options.containsKey("--repo"), "--repo required");
+      Contract.require(
+          args[0].equals("init") || !options.containsKey("--agent"), "--agent is for init only");
       Contract.require(
           !(flags.contains("--apply") && flags.contains("--dry-run")),
           "--apply and --dry-run are exclusive");
       String format = options.getOrDefault("--format", "text");
       Contract.require(Set.of("text", "json").contains(format), "Unknown format");
-      Path repo = Path.of(options.get("--repo")).toAbsolutePath().normalize();
+      Path repo = Path.of(options.getOrDefault("--repo", ".")).toAbsolutePath().normalize();
+      if (args[0].equals("init")) {
+        Contract.require(
+            options.keySet().stream().allMatch(k -> Set.of("--repo", "--agent").contains(k))
+                && flags.isEmpty()
+                && roots.isEmpty()
+                && jars.isEmpty(),
+            "init accepts --repo and --agent only");
+        var result = Initializer.initialize(repo, options.getOrDefault("--agent", "none"));
+        result.files().forEach(out::println);
+        out.println(result.profileStatus());
+        out.println(
+            "下一步：核对 .atomic-api/profile.yaml，编辑 .atomic-api/contracts/example.yaml，然后 atomic-api"
+                + " check。");
+        if (options.getOrDefault("--agent", "none").equals("none"))
+          out.println(
+              "Skill 已保存到 .atomic-api/skills/atomic-api-design/；自动发现可运行 atomic-api init --agent"
+                  + " codex|claude|cursor。");
+        return 0;
+      }
       if (args[0].equals("demo")) {
         Contract.require(
-            options.size() == 1 && flags.isEmpty() && roots.isEmpty() && jars.isEmpty(),
+            options.keySet().stream().allMatch("--repo"::equals)
+                && flags.isEmpty()
+                && roots.isEmpty()
+                && jars.isEmpty(),
             "demo accepts --repo only");
         Demo.create(repo);
         out.println("Created sample project: " + repo);
@@ -71,7 +108,9 @@ public final class Cli {
       Path configured =
           options.containsKey("--profile")
               ? Path.of(options.get("--profile"))
-              : repo.resolve("atomic-api-profile.yaml");
+              : Files.isRegularFile(repo.resolve(".atomic-api/profile.yaml"))
+                  ? repo.resolve(".atomic-api/profile.yaml")
+                  : repo.resolve("atomic-api-profile.yaml");
       Contract.require(
           !options.containsKey("--profile") || Files.isRegularFile(configured),
           "Specified profile file missing");

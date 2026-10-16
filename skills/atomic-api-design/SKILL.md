@@ -5,13 +5,13 @@ description: 为采用 Delegate、SDK Facade、ApiHandler、Builder 分层架构
 
 # 原子 API 设计与开发
 
-先确认实际仓库与工具状态。工具运行需要 Java 17。首次从仓库根执行 `mvn -f cli/pom.xml package`，生成 `cli/target/atomic-api-0.1.0.jar`；后续用 `java -jar <jar路径>` 执行命令。单独复制 Skill 目录不会自动获得 JAR。
+在业务项目根目录使用 `atomic-api` 命令。先运行 `atomic-api -h` 确认工具已安装；尚未初始化时运行 `atomic-api init`。配置、contract 和 Skill 统一存放在项目的 `.atomic-api/` 中。
 
 ## 读取与范围
 
 1. 阅读适用 AGENTS.md、git status、目标接口及完整调用链。
 2. 开发或审查前阅读 [开发规则](references/rules.md)。
-3. 定义新 API 时阅读 [Contract 约定](references/contracts.md)，参考仓库 examples/。
+3. 定义新 API 时阅读 [Contract 约定](references/contracts.md)，参考 `.atomic-api/contracts/example.yaml`。
 4. 交付前完成 [审查清单](references/review-checklist.md)。
 
 只对框架调用链应用范式，不套用到所有 Java 方法。不自动变更外部契约、生成模型和无关代码。
@@ -28,14 +28,14 @@ description: 为采用 Delegate、SDK Facade、ApiHandler、Builder 分层架构
 
 ## 实现或生成
 
-使用以下命令（atomic-api 表示 `java -jar <jar路径>`）：
+所有命令默认使用当前目录，也可用 `--repo <path>` 指定项目。使用以下命令：
 
 ```text
-atomic-api demo --repo <empty-directory>
-atomic-api generate --repo <path> --contract <api.yaml> --dry-run
-atomic-api generate --repo <path> --contract <api.yaml> --apply
-atomic-api check --repo <path>
-atomic-api check --repo <path> --contract <api.yaml>
+atomic-api init
+atomic-api generate --contract .atomic-api/contracts/example.yaml --dry-run
+atomic-api generate --contract .atomic-api/contracts/example.yaml --apply
+atomic-api check --format json
+atomic-api check --contract .atomic-api/contracts/example.yaml --format json
 ```
 
 先审阅全量计划与 diff，再按授权应用。新文件使用 AST 模板，已有文件使用 AST 定点插入。拒绝签名冲突、覆盖业务实现和路径越界；保留无关修改与换行。
@@ -46,7 +46,7 @@ atomic-api check --repo <path> --contract <api.yaml>
 
 ## 检查与报告
 
-仓库根目录的 `python scripts/validate_design.py` 只验证设计文件，不替代 Java AST、编译或业务测试。
+`atomic-api check` 执行 Java AST 检查；使用业务项目自身命令进行编译和业务测试。
 
 AST 检查输出 ERROR、WARN、INCOMPLETE、覆盖与 readiness。解析失败或无适用对象不能显示通过。OR 条件仅为风险线索，独立失败原因合并才构成违规。读取输出的 manualChecks，不能把未自动证明的规则当成通过。
 

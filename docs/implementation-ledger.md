@@ -29,3 +29,13 @@ Ruling：当前输入绑定仅支持一个字段段和前序步骤，通用字�
 打包 JAR 实跑发现同一实现类连续生成两份 contract 时注入字段名冲突。修复为类型复用与确定性名字分配，增加组合生成、编译及重复 NOOP 回归。
 
 最终验证：45 项 Java 测试、18 项 Python 测试、Skill 元数据与文档链接校验通过。打包 JAR 从空目录运行 demo，单 Handler 与多 Handler 在同一工程预览/应用、检查均完成，发现并检查 2 个方法，无 finding；示例 Maven Java 8 编译成功，重复生成 NOOP。readiness 仍为 SCAFFOLD，底层业务与 Builder 映射需由使用者完成。
+
+## 2026-10-16：命令行安装与项目初始化
+
+新增 atomic-api 用户命令（POSIX / Windows 启动器）、用户目录安装脚本、便携安装包；日常调用隐藏 Java 启动参数。所有命令默认当前目录。init 默认仅创建 .atomic-api/，归纳 profile、contract、schema、完整 Skill，可显式 --agent 安装到代理发现目录。旧 profile 原样迁移，既有文件保留。
+
+Ruling：默认不修改代理规则文件、不猜测 .skills/ 是统一发现目录；Codex/Claude/Cursor 通过显式选项接入。安装器检查目标和父目录链接。重复 init 保留定制内容，不承诺自动升级用户 Skill。
+
+独立审查复现了旧配置被新草稿遮蔽、安装目标链接覆盖外部文件两项问题；分别增加失败回归并修复。发现 Skill 引用了分发包外的说明，已改为自带字段规则及项目内 schema。回归测试中曾修正一处测试方法插入位置错误，不将测试代码错误算作产品红灯证据。
+
+验证：Maven verify 成功，50 项 Java 测试通过；24 项 Python 测试通过（含 6 项实际启动器/安装测试）；Skill 校验与文档链接检查通过。便携包解压后实际安装到独立用户目录，通过 atomic-api -h、demo、init --agent codex、连续生成两条链路、check 和重复 NOOP。本地没有 Windows 执行环境，Windows 命令通过新增的 GitHub windows-latest smoke job 验证，结果以 CI 为准。
