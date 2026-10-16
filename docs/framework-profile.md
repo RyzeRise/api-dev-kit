@@ -25,7 +25,7 @@ layout:
 
 profile 的标识必须与实际源码/依赖解析身份一致。ComponentManagement 的 getFacadeImpl 签名、Handler 生命周期及异常构造器必须通过 AST/依赖校验，不能因为名字一致就套用模板。
 
-0.1.0 仅支持 facadeDefault: throw（新增 default 显式抛内部异常），不改变既有默认方法。project-existing 尚未实现，输入时明确拒绝。
+facadeDefault 支持 throw（新增 default 显式抛内部异常）和 return-null（新增 default 返回 null）。项目须显式选择；不改变既有默认方法。targetJava 支持 8、11、17、21。project-existing 尚未实现，输入时明确拒绝。
 
 自动发现可输出候选 profile；候选不唯一为 INCOMPLETE。不修改用户现有配置。layout 按最长匹配 packagePrefix 定位新文件，匹配并列或没有匹配时停止。existing 源码修改直接使用索引中的真实路径。
 
