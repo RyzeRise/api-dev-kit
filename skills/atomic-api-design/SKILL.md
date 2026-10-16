@@ -61,7 +61,7 @@ atomic-api check --contract .atomic-api/contracts/example.yaml --format json
 
 先审阅全量计划与 diff，再按授权应用。新文件使用 AST 模板，已有文件使用 AST 定点插入。拒绝签名冲突、覆盖业务实现和路径越界；保留无关修改与换行。
 
-当前生成仅支持 profile 的 `facadeDefault: throw`，不改变既有 default 行为。底层业务未实现时明确抛异常并列出待实现项，不返回 null 或空 DTO 伪装完成。
+Facade 生成遵循开发规则中的 LDP 结构基准。profile 的 `facadeDefault` 支持 `throw` 与显式选择的 `return-null`，不改变既有 default 行为。底层业务未实现时明确抛异常并列出待实现项，不返回 null 或空 DTO 伪装完成。
 
 不因生成恢复用户要求删除的业务测试；工具自己的测试独立执行。
 
