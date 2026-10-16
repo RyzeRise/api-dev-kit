@@ -34,6 +34,8 @@ atomic-api check --format json
 
 `init` 默认只创建 `.atomic-api/`：配置为 `.atomic-api/profile.yaml`，示例为 `.atomic-api/contracts/example.yaml`，Skill 为 `.atomic-api/skills/atomic-api-design/`。无法自动识别框架时生成明确标注的待配置草稿，使用前核对。再次 init 保留已有文件。
 
+初始化还预留 `.atomic-api/work/`，临时计划、日志、调试脚本、参数文件和编译产物统一保存到 `.atomic-api/work/<operation>/`，不散落在 `.atomic-api/` 根目录。工作目录默认忽略版本管理；`generate`、`check` 默认输出到终端，不自动生成日志文件。已有文件不会被 init 移动或删除。
+
 需要代码代理自动发现 Skill 时，可显式选择：
 
 ```bash
@@ -82,7 +84,7 @@ CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 和包含安装脚�
 
 已有 Delegate 实现外部接口时，生成器解析其准确方法签名，保留 context 等额外参数；请求字段必须能按名字、类型绑定。重载或复杂签名不明确时停止，不猜测。
 
-**0.1.0 边界**：仅支持 profile 的 `facadeDefault: throw`；不改生成模型、不覆盖既有方法、不支持任意绑定表达式、复杂控制流或自动业务实现。Lombok 生成的方法若源码/依赖无法解析，需要补充编译后 classpath，或手工适配。详细规则及未覆盖项见 [使用约定](docs/cli.md)。
+**0.1.0 边界**：profile 支持 `facadeDefault: throw` 或显式 `return-null`；支持 Java 8/11/17/21 目标及完整限定的泛型集合字段；不改生成模型、不覆盖既有方法、不支持任意绑定表达式、复杂控制流或自动业务实现。Lombok 生成的方法若源码/依赖无法解析，需要补充编译后 classpath，或手工适配。详细规则及未覆盖项见 [使用约定](docs/cli.md)。
 
 ## 文档与 Skill
 

@@ -29,14 +29,15 @@ public record Profile(
 
   void validate() {
     Contract.require(
-        version == 1 && Set.of(8, 11, 17).contains(targetJava),
+        version == 1 && Set.of(8, 11, 17, 21).contains(targetJava),
         "Unsupported profile version/targetJava");
     Contract.require(
         types != null && types.keySet().equals(new HashSet<>(KEYS)),
         "Profile types missing or unknown");
     types.values().forEach(Contract::fqn);
     Contract.require(
-        "throw".equals(facadeDefault), "First release supports explicit facadeDefault: throw only");
+        Set.of("throw", "return-null").contains(facadeDefault == null ? "" : facadeDefault),
+        "Unsupported facadeDefault: use throw or return-null");
     Contract.require(layout != null && !layout.isEmpty(), "Profile layout missing");
     for (Layout l : layout) {
       Contract.fqn(l.packagePrefix);

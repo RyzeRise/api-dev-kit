@@ -7,6 +7,27 @@ description: 为采用 Delegate、SDK Facade、ApiHandler、Builder 分层架构
 
 在业务项目根目录使用 `atomic-api` 命令。先运行 `atomic-api -h` 确认工具已安装；尚未初始化时运行 `atomic-api init`。配置、contract 和 Skill 统一存放在项目的 `.atomic-api/` 中。
 
+## 目录与临时产物
+
+`.atomic-api/` 根目录只放 `profile.yaml`、`.gitignore` 和约定子目录。产物按以下位置保存：
+
+| 内容 | 位置 |
+|---|---|
+| 接口契约 | `.atomic-api/contracts/<operation>.yaml` |
+| Schema、Skill | `.atomic-api/schemas/`、`.atomic-api/skills/` |
+| 当前操作的计划、日志、报告、备份、参数文件、调试脚本及编译产物 | `.atomic-api/work/<operation>/` |
+| 可复用缓存 | `.atomic-api/cache/` |
+
+开始需要落盘的操作前，先创建 `.atomic-api/work/<operation>/`，后续重定向输出、临时源码、JAR 和 class 文件均写入该目录；不在 `.atomic-api/` 根目录逐个创建带操作名前缀的文件。需要 Java 参数文件时也放在此目录，内部路径以业务仓库根目录为基准。CLI 的标准输出默认无需保存；需要留存才重定向到工作目录。
+
+例如为 `queryPwe3AlarmByCsn` 保存检查结果：先创建 `.atomic-api/work/queryPwe3AlarmByCsn/`，再执行：
+
+```text
+atomic-api check --contract .atomic-api/contracts/query-pwe3-alarm-by-csn.yaml --format json > .atomic-api/work/queryPwe3AlarmByCsn/check.json
+```
+
+交付前检查 `.atomic-api/` 的第一层；本次产生的临时文件应全部位于对应工作目录。`init` 不自动移动或删除已有文件。
+
 ## 读取与范围
 
 1. 阅读适用 AGENTS.md、git status、目标接口及完整调用链。

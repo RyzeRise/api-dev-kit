@@ -79,4 +79,11 @@ class ContractTest {
         IllegalArgumentException.class,
         () -> Contract.load(input(example().replace("version: 1", "version: '1'"))));
   }
+  @Test
+  void acceptsNestedFullyQualifiedCollectionTypes() throws Exception {
+    Contract.javaType("java.util.Map<java.lang.String, java.util.List<java.lang.String>>");
+    assertThrows(IllegalArgumentException.class, () -> Contract.javaType("java.util.List<int>"));
+    assertThrows(IllegalArgumentException.class, () -> Contract.javaType("java.util.List<String>"));
+    assertThrows(IllegalArgumentException.class, () -> Contract.javaType("java.lang.String;System.exit(0)"));
+  }
 }

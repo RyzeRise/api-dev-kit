@@ -29,7 +29,7 @@ public final class SourceIndex {
   }
 
   public static SourceIndex scan(Path root, List<Path> roots, List<Path> jars) throws IOException {
-    SourceIndex index = new SourceIndex(root);
+    SourceIndex index = new SourceIndex(root.toRealPath());
     Contract.require(Files.isDirectory(index.root), "Repository directory missing");
     var memory = new MemoryTypeSolver();
     var solver = new CombinedTypeSolver(memory, new ReflectionTypeSolver(false));
@@ -38,7 +38,7 @@ public final class SourceIndex {
     var parser =
         new JavaParser(
             new ParserConfiguration()
-                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17)
+                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21)
                 .setSymbolResolver(new JavaSymbolSolver(solver)));
     try (Stream<Path> stream = Files.walk(index.root)) {
       for (Path path :

@@ -68,7 +68,7 @@
   "$defs": {
     "identifier": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
     "fqn": {"type": "string", "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*\\.)+[A-Za-z_][A-Za-z0-9_]*$"},
-    "javaType": {"type": "string", "pattern": "^(?:(?:boolean|byte|short|int|long|char|float|double)|(?:[A-Za-z_][A-Za-z0-9_]*\\.)+[A-Za-z_][A-Za-z0-9_]*)(?:\\[\\])*$"},
+    "javaType": {"type": "string", "minLength": 1, "maxLength": 2000},
     "sourceRoot": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"},
     "field": {
       "type": "object", "additionalProperties": false,

@@ -49,6 +49,27 @@ class CliTest {
   }
 
   @Test
+  void initReservesWorkDirectoryAndCommandsKeepMetadataRootClean() throws Exception {
+    assertEquals(0, run("demo", "--repo", root.toString()));
+    assertEquals(0, run("init", "--repo", root.toString(), "--agent", "codex"));
+    assertTrue(Files.readString(root.resolve(".atomic-api/.gitignore")).contains("work/"));
+    assertTrue(Files.exists(root.resolve(".atomic-api/work/.gitignore")));
+    for (String skill : java.util.List.of(
+        ".atomic-api/skills/atomic-api-design/SKILL.md",
+        ".agents/skills/atomic-api-design/SKILL.md")) {
+      assertTrue(Files.readString(root.resolve(skill)).contains(".atomic-api/work/<operation>/"));
+    }
+    String contract = root.resolve("contracts/single-handler.yaml").toString();
+    assertEquals(0, run("generate", "--repo", root.toString(), "--contract", contract, "--apply"));
+    assertEquals(0, run("check", "--repo", root.toString(), "--contract", contract, "--format", "json"));
+    assertEquals(0, run("init", "--repo", root.toString()));
+    try (var files = Files.list(root.resolve(".atomic-api"))) {
+      assertEquals(java.util.Set.of(".gitignore", "profile.yaml", "contracts", "schemas", "skills", "work"),
+          files.map(p -> p.getFileName().toString()).collect(java.util.stream.Collectors.toSet()));
+    }
+  }
+
+  @Test
   void initDiscoversFrameworkAndRejectsSymlinkWrites() throws Exception {
     Fixtures.framework(root);
     assertEquals(0, run("init", "--repo", root.toString()));
@@ -58,7 +79,12 @@ class CliTest {
     Path other = Files.createTempDirectory("atomic-init-other-");
     Files.delete(root.resolve(".atomic-api/contracts/example.yaml"));
     Files.delete(root.resolve(".atomic-api/contracts"));
-    Files.createSymbolicLink(root.resolve(".atomic-api/contracts"), other);
+    try {
+      Files.createSymbolicLink(root.resolve(".atomic-api/contracts"), other);
+    } catch (java.nio.file.FileSystemException e) {
+      org.junit.jupiter.api.Assumptions.assumeFalse(System.getProperty("os.name").startsWith("Windows"), "Windows symlink privilege unavailable: " + e.getReason());
+      throw e;
+    }
     assertEquals(2, run("init", "--repo", root.toString()));
     assertFalse(Files.exists(other.resolve("example.yaml")));
   }

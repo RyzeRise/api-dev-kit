@@ -17,6 +17,79 @@ class GenerationTest {
   }
 
   @Test
+  void generatesExplicitNullFallbackAndKeepsBusinessPlaceholder() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    var original = Profile.load(Fixtures.profile(root));
+    var profile = new Profile(1, 21, original.types(), "return-null", original.layout());
+    new Generator().plan(root, contract(false), profile).apply();
+    var index = SourceIndex.scan(root);
+    var method = index.type(contract(false).target().facade()).getMethodsByName(contract(false).operation()).get(0);
+    assertTrue(method.getBody().orElseThrow().toString().contains("return null;"));
+    assertFalse(method.getBody().orElseThrow().toString().contains("throw"));
+    assertTrue(index.type(contract(false).steps().get(0).handler()).toString().contains("ATOMIC_API_UNIMPLEMENTED"));
+  }
+
+  @Test
+  void insertedDelegateUsesImportsAndReadableStatements() throws Exception {
+    Fixtures.write(root, "com/example/service/ResourceDelegateImpl",
+        "package com.example.service;\n// keep this comment\npublic class ResourceDelegateImpl {\n    public int original() { return 7; }\n}\n");
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    var c = contract(false);
+    var profile = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, profile).apply();
+    var index = SourceIndex.scan(root);
+    var owner = index.type(c.target().delegate());
+    var text = Files.readString(index.path(owner));
+    assertTrue(text.contains("import " + c.target().facade() + ";"), text);
+    assertTrue(text.contains("import " + c.target().converter() + ";"), text);
+    var method = owner.getMethodsByName(c.operation()).get(0);
+    assertFalse(method.toString().contains(c.target().facade()), method.toString());
+    assertTrue(text.contains("try {\n"), text);
+    assertFalse(text.contains(";return"), text);
+    assertFalse(text.contains(";}catch"), text);
+    assertTrue(text.contains("\n        try {\n"), text);
+    assertTrue(text.contains("\n            return builder"), text);
+    assertTrue(text.contains("// keep this comment"), text);
+    assertTrue(text.contains("public int original() { return 7; }"), text);
+    compileAll();
+    assertTrue(new Generator().plan(root, c, profile).changes().isEmpty());
+  }
+
+  @Test
+  void generatedImportsKeepConflictingSimpleNamesQualified() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    Fixtures.write(root, "other/ResourceFacade", "package other; public interface ResourceFacade {}");
+    var c = contract(false);
+    var delegate = root.resolve("src/main/java/com/example/service/ResourceDelegateImpl.java");
+    Fixtures.write(root, "com/example/service/ResourceDelegateImpl",
+        "package com.example.service;\nimport other.ResourceFacade;\npublic class ResourceDelegateImpl {}\n");
+    var profile = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, profile).apply();
+    var text = Files.readString(delegate);
+    assertTrue(text.contains("import other.ResourceFacade;"));
+    assertFalse(text.contains("import " + c.target().facade() + ";"));
+    assertTrue(text.contains(c.target().facade() + " facade"), text);
+    compileAll();
+    assertTrue(new Generator().plan(root, c, profile).changes().isEmpty());
+  }
+
+  @Test
+  void generatedHandlerAcceptsFileCopyrightHeaderOnRerun() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    var c = contract(false);
+    var profile = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, profile).apply();
+    var index = SourceIndex.scan(root);
+    var handler = index.path(index.type(c.steps().get(0).handler()));
+    Files.writeString(handler, "/*\n * Copyright (c) Example 2026. All rights reserved.\n */\n\n" + Files.readString(handler));
+    assertTrue(new Generator().plan(root, c, profile).changes().isEmpty());
+  }
+
+  @Test
   void singleEndToEndAndIdempotency() throws Exception {
     generateAndCompile(false);
   }
@@ -83,7 +156,12 @@ class GenerationTest {
     Fixtures.framework(root);
     Fixtures.external(root, false);
     Path outside = Files.createTempDirectory("atomic-api-outside-");
-    Files.createSymbolicLink(root.resolve("function-sdk"), outside);
+    try {
+      Files.createSymbolicLink(root.resolve("function-sdk"), outside);
+    } catch (java.nio.file.FileSystemException e) {
+      org.junit.jupiter.api.Assumptions.assumeFalse(System.getProperty("os.name").startsWith("Windows"), "Windows symlink privilege unavailable: " + e.getReason());
+      throw e;
+    }
     assertThrows(
         IllegalArgumentException.class,
         () -> new Generator().plan(root, contract(false), Profile.load(Fixtures.profile(root))));
@@ -296,11 +374,11 @@ class GenerationTest {
     Path delegate = root.resolve("src/main/java/com/example/service/ResourceDelegateImpl.java");
     code = Files.readString(delegate);
     assertTrue(
-        code.contains("throw new com.example.framework.OpsApiException(\"result is empty\");"));
+        code.contains("throw new OpsApiException(\"result is empty\");"));
     Files.writeString(
         delegate,
         code.replace(
-            "throw new com.example.framework.OpsApiException(\"result is empty\");",
+            "throw new OpsApiException(\"result is empty\");",
             "java.util.concurrent.Callable<Object> delayed = () -> {throw new"
                 + " com.example.framework.OpsApiException(\"result is empty\");};"));
     compileAll();
@@ -326,12 +404,12 @@ class GenerationTest {
             + " getMessage();}}");
     try (var walk = Files.walk(root)) {
       for (Path file : walk.filter(f -> f.toString().endsWith(".java")).toList()) {
-        if (file.toString().endsWith("framework/OpsApiException.java")) continue;
+        if (file.toString().replace('\\', '/').endsWith("framework/OpsApiException.java")) continue;
         String code =
             Files.readString(file)
                 .replace(
                     "com.example.framework.OpsApiException", "com.example.other.OpsApiException");
-        if (file.toString().endsWith("framework/ApiHandler.java"))
+        if (file.toString().replace('\\', '/').endsWith("framework/ApiHandler.java"))
           code = code.replace("throws OpsApiException", "throws com.example.other.OpsApiException");
         Files.writeString(file, code);
       }

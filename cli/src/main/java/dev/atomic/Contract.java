@@ -195,8 +195,28 @@ public record Contract(
 
   static void javaType(String s) {
     require(s != null, "Missing Java type");
-    while (s.endsWith("[]")) s = s.substring(0, s.length() - 2);
-    if (!PRIMITIVES.contains(s)) fqn(s);
+    try {
+      var parsed = com.github.javaparser.StaticJavaParser.parseType(s);
+      validateType(parsed, false);
+    } catch (RuntimeException e) {
+      throw new IllegalArgumentException("Invalid Java type: " + s, e);
+    }
+  }
+
+  private static void validateType(com.github.javaparser.ast.type.Type type, boolean argument) {
+    if (type.isArrayType()) {
+      validateType(type.asArrayType().getComponentType(), false);
+    } else if (type.isPrimitiveType()) {
+      require(!argument, "Generic arguments require reference types");
+    } else {
+      require(type.isClassOrInterfaceType(), "Unsupported Java type");
+      var reference = type.asClassOrInterfaceType();
+      fqn(reference.getNameWithScope());
+      reference.getTypeArguments().ifPresent(args -> args.forEach(t -> validateType(t, true)));
+      reference.getScope().ifPresent(scope -> require(
+          scope.findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class).stream()
+              .noneMatch(t -> t.getTypeArguments().isPresent()), "Parameterized outer types unsupported"));
+    }
   }
 
   static void root(String s) {
