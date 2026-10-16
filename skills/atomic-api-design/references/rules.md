@@ -58,3 +58,5 @@ default 返回行为不是已统一范式，必须由项目明确，不自动改
 - 编排步骤语义、字段名和 Handler 所在包以项目示例与 contract 为准，不能从类型名猜出业务逻辑。
 
 生成器回归测试覆盖单步骤直接返回、多步骤调用顺序和 Builder 汇总、import、编译及重复生成零变更。
+
+新增 import 必须放入对应包分组并排序，不能追加到文件 import 区域末尾。需要禁用 Facade 注册时，通过项目 profile 的可选 `disabledFacade.configuration` 和 `disabledFacade.mapField` 明确目标；交由 generate 管理注册和 import，不用脚本拼接全限定类型名。
