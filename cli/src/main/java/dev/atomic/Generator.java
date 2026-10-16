@@ -182,7 +182,7 @@ public final class Generator {
       }
       if (same) {
         Contract.require(
-            existing.toString().equals(method.toString()),
+            existing.toString().replace("\r\n", "\n").equals(method.toString().replace("\r\n", "\n")),
             "CONFLICT: existing method "
                 + owner.getNameAsString()
                 + "."
