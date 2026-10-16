@@ -34,3 +34,15 @@ sourceRoot 必须是仓库内相对目录，apply 前校验真实路径与符号
 物理目录与 package 不同时，在对应 layout 中增加可选 directoryPrefix。例如 packagePrefix=com.example、sourceRoot=src/main/java、directoryPrefix=physical/shared 会把 com.example.sdk.Request 放到 src/main/java/physical/shared/sdk/Request.java。现有类型始终使用索引中的真实路径。
 
 新增 API 无需修改 profile，除非引入新的模块或框架；不得向 profile 添加 operation 列表。
+
+## 禁用 Facade 注册（可选）
+
+需要在项目现有的禁用实现配置中注册 Facade 时，在 profile 中显式声明：
+
+```yaml
+disabledFacade:
+  configuration: com.example.sdk.FacadeInterfaceDisableImplConfiguration
+  mapField: disableMap
+```
+
+`configuration` 是现有配置类的完整类名；`mapField` 是该类的注册 Map 字段。生成器在显式无参构造函数中追加当前 contract 的 `Facade.class -> new Facade() {}` 注册；已有等价注册只简化类型引用，不重复添加。自定义实现或重复注册报冲突，不覆盖。未配置时不查找或修改注册类。生成的 import 按包分组排序（Java 标准库放在最后，static import 单独分组）；包含注释的既有 import 区块保持原样，避免丢失注释。
