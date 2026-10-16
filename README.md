@@ -34,6 +34,8 @@ atomic-api check --format json
 
 `init` 默认只创建 `.atomic-api/`：配置为 `.atomic-api/profile.yaml`，示例为 `.atomic-api/contracts/example.yaml`，Skill 为 `.atomic-api/skills/atomic-api-design/`。无法自动识别框架时生成明确标注的待配置草稿，使用前核对。再次 init 保留已有文件。
 
+初始化还预留 `.atomic-api/work/`，临时计划、日志、调试脚本、参数文件和编译产物统一保存到 `.atomic-api/work/<operation>/`，不散落在 `.atomic-api/` 根目录。工作目录默认忽略版本管理；`generate`、`check` 默认输出到终端，不自动生成日志文件。已有文件不会被 init 移动或删除。
+
 需要代码代理自动发现 Skill 时，可显式选择：
 
 ```bash
