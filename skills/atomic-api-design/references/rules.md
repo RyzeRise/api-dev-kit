@@ -45,3 +45,16 @@ Handler：preHandler 校验与上下文；invokeAtomicApi 底层调用；postHan
 Builder：汇总输出，不发起底层查询。异常定位沿用既有 addEntry 策略。
 
 default 返回行为不是已统一范式，必须由项目明确，不自动改变现有默认方法。
+
+## Facade 生成基准
+
+以项目确认的 LDP Facade 实现为结构标准：
+
+- 单 Handler 直接 `return handler.run(request)`，不生成无意义的结果中间变量。
+- 多 Handler 按 contract 顺序执行，前步结果传给后步；需要汇总时最后调用 Builder。
+- Facade 不承担底层查询、结果字段映射和异常转换；内部异常沿调用链抛出。
+- 类声明、注解、注入字段、泛型和方法签名统一使用 import 与短类型名；名称冲突时保留必要的全限定名。
+- Handler 的 pre/invoke/post 职责分离；未知底层能力明确保留未实现异常，不能把骨架当作业务完成。
+- 编排步骤语义、字段名和 Handler 所在包以项目示例与 contract 为准，不能从类型名猜出业务逻辑。
+
+生成器回归测试覆盖单步骤直接返回、多步骤调用顺序和 Builder 汇总、import、编译及重复生成零变更。
