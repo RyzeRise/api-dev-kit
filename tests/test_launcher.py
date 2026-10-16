@@ -58,7 +58,10 @@ class LauncherTests(unittest.TestCase):
             fake_java = Path(tmp) / 'java'
             fake_java.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\nexit 7\n', encoding='utf-8')
             fake_java.chmod(0o755)
-            env = dict(os.environ, JAVA_HOME=tmp, PATH=tmp + os.pathsep + os.environ['PATH'])
+            dummy_jar = Path(tmp) / 'dummy.jar'
+            dummy_jar.touch()
+            env = dict(os.environ, JAVA_HOME=tmp, ATOMIC_API_JAR=str(dummy_jar),
+                       PATH=tmp + os.pathsep + os.environ['PATH'])
             result = self.command('check', '--repo', 'project with spaces', env=env)
             self.assertEqual(7, result.returncode)
             self.assertEqual(['check', '--repo', 'project with spaces'], result.stdout.splitlines()[-3:])

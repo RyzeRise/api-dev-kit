@@ -41,6 +41,7 @@ jobs:
           java-version: '17'
           cache: maven
           cache-dependency-path: cli/pom.xml
-      - run: mvn -B -f cli/pom.xml package -Dmaven.test.skip=true
+      - shell: cmd
+        run: mvn -B -f cli/pom.xml package -Dmaven.test.skip=true
       - shell: powershell
         run: ./scripts/test_windows_cli.ps1
