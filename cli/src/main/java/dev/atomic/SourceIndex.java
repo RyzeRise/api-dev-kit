@@ -38,7 +38,7 @@ public final class SourceIndex {
     var parser =
         new JavaParser(
             new ParserConfiguration()
-                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17)
+                .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21)
                 .setSymbolResolver(new JavaSymbolSolver(solver)));
     try (Stream<Path> stream = Files.walk(index.root)) {
       for (Path path :
