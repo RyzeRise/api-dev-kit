@@ -75,6 +75,19 @@ class GenerationTest {
   }
 
   @Test
+  void generatedHandlerAcceptsFileCopyrightHeaderOnRerun() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    var c = contract(false);
+    var profile = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, profile).apply();
+    var index = SourceIndex.scan(root);
+    var handler = index.path(index.type(c.steps().get(0).handler()));
+    Files.writeString(handler, "/*\n * Copyright (c) Example 2026. All rights reserved.\n */\n\n" + Files.readString(handler));
+    assertTrue(new Generator().plan(root, c, profile).changes().isEmpty());
+  }
+
+  @Test
   void singleEndToEndAndIdempotency() throws Exception {
     generateAndCompile(false);
   }
