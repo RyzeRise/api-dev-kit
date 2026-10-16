@@ -31,6 +31,50 @@ class GenerationTest {
   }
 
   @Test
+  void insertedDelegateUsesImportsAndReadableStatements() throws Exception {
+    Fixtures.write(root, "com/example/service/ResourceDelegateImpl",
+        "package com.example.service;\n// keep this comment\npublic class ResourceDelegateImpl {\n    public int original() { return 7; }\n}\n");
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    var c = contract(false);
+    var profile = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, profile).apply();
+    var index = SourceIndex.scan(root);
+    var owner = index.type(c.target().delegate());
+    var text = Files.readString(index.path(owner));
+    assertTrue(text.contains("import " + c.target().facade() + ";"), text);
+    assertTrue(text.contains("import " + c.target().converter() + ";"), text);
+    var method = owner.getMethodsByName(c.operation()).get(0);
+    assertFalse(method.toString().contains(c.target().facade()), method.toString());
+    assertTrue(text.contains("try {\n"), text);
+    assertFalse(text.contains(";return"), text);
+    assertFalse(text.contains(";}catch"), text);
+    assertTrue(text.contains("// keep this comment"), text);
+    assertTrue(text.contains("public int original() { return 7; }"), text);
+    compileAll();
+    assertTrue(new Generator().plan(root, c, profile).changes().isEmpty());
+  }
+
+  @Test
+  void generatedImportsKeepConflictingSimpleNamesQualified() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    Fixtures.write(root, "other/ResourceFacade", "package other; public interface ResourceFacade {}");
+    var c = contract(false);
+    var delegate = root.resolve("src/main/java/com/example/service/ResourceDelegateImpl.java");
+    Fixtures.write(root, "com/example/service/ResourceDelegateImpl",
+        "package com.example.service;\nimport other.ResourceFacade;\npublic class ResourceDelegateImpl {}\n");
+    var profile = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, profile).apply();
+    var text = Files.readString(delegate);
+    assertTrue(text.contains("import other.ResourceFacade;"));
+    assertFalse(text.contains("import " + c.target().facade() + ";"));
+    assertTrue(text.contains(c.target().facade() + " facade"), text);
+    compileAll();
+    assertTrue(new Generator().plan(root, c, profile).changes().isEmpty());
+  }
+
+  @Test
   void singleEndToEndAndIdempotency() throws Exception {
     generateAndCompile(false);
   }
@@ -315,11 +359,11 @@ class GenerationTest {
     Path delegate = root.resolve("src/main/java/com/example/service/ResourceDelegateImpl.java");
     code = Files.readString(delegate);
     assertTrue(
-        code.contains("throw new com.example.framework.OpsApiException(\"result is empty\");"));
+        code.contains("throw new OpsApiException(\"result is empty\");"));
     Files.writeString(
         delegate,
         code.replace(
-            "throw new com.example.framework.OpsApiException(\"result is empty\");",
+            "throw new OpsApiException(\"result is empty\");",
             "java.util.concurrent.Callable<Object> delayed = () -> {throw new"
                 + " com.example.framework.OpsApiException(\"result is empty\");};"));
     compileAll();
