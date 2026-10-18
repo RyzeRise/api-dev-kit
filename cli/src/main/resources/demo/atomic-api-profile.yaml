@@ -10,6 +10,8 @@ types:
   componentAnnotation: com.example.framework.Component
 facadeDefault: throw
 layout:
+  - packagePrefix: com.example.common
+    sourceRoot: ipran-app-api-common/src/main/java
   - packagePrefix: com.example.sdk
     sourceRoot: function-sdk/src/main/java
   - packagePrefix: com.example.app

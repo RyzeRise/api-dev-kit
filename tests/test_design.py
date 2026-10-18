@@ -28,6 +28,13 @@ class DesignTests(unittest.TestCase):
         self.check(self.single)
         self.check(self.multi)
 
+    def test_separate_response_converter_and_collision(self):
+        fault = validator.load_yaml(ROOT / "examples/fault-response.yaml")
+        self.check(fault)
+        fault["target"]["responseConverter"] = fault["target"]["converter"]
+        with self.assertRaisesRegex(ValueError, "Target types must differ"):
+            self.check(fault)
+
     def test_rejects_unknown_properties(self):
         self.single["contractRegistry"] = []
         with self.assertRaises(ValidationError):

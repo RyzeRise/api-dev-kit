@@ -54,21 +54,20 @@ final class Initializer {
     assets.put(
         ".atomic-api/contracts/example.yaml", resource("/demo/contracts/single-handler.yaml"));
     assets.put(
+        ".atomic-api/contracts/fault-response.yaml",
+        resource("/demo/contracts/fault-response.yaml"));
+    assets.put(
         ".atomic-api/schemas/api-contract.schema.json",
         resource("/schemas/api-contract.schema.json"));
     assets.put(".atomic-api/.gitignore", "reports/\ncache/\nwork/\n");
     assets.put(".atomic-api/work/.gitignore", "*\n");
     for (String file :
-        List.of(
-            "SKILL.md",
-            "agents/openai.yaml",
-            "references/rules.md",
-            "references/contracts.md",
-            "references/review-checklist.md")) {
-      String text = resource("/init/skills/atomic-api-design/" + file);
-      assets.put(".atomic-api/skills/atomic-api-design/" + file, text);
-      if (!agent.equals("none"))
-        assets.put(agentRoots.get(agent) + "/atomic-api-design/" + file, text);
+        resource("/init/skills/manifest.txt").lines().filter(s -> !s.isBlank()).toList()) {
+      Contract.require(
+          !file.contains("..") && !file.startsWith("/"), "Unsafe skill asset: " + file);
+      String text = resource("/init/skills/" + file);
+      assets.put(".atomic-api/skills/" + file, text);
+      if (!agent.equals("none")) assets.put(agentRoots.get(agent) + "/" + file, text);
     }
     List<GenerationPlan.Change> changes = new ArrayList<>();
     List<String> messages = new ArrayList<>();

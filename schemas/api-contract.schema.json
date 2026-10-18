@@ -15,7 +15,8 @@
         "facade": {"$ref": "#/$defs/fqn"},
         "implementation": {"$ref": "#/$defs/fqn"},
         "delegate": {"$ref": "#/$defs/fqn"},
-        "converter": {"$ref": "#/$defs/fqn"}
+        "converter": {"$ref": "#/$defs/fqn"},
+        "responseConverter": {"$ref": "#/$defs/fqn"}
       }
     },
     "models": {

@@ -8,7 +8,7 @@ if (-not $Jar -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'lib/atomic-
 } elseif (-not $Jar) {
     & mvn -q -f (Join-Path $PSScriptRoot 'cli/pom.xml') package
     if ($LASTEXITCODE -ne 0) { throw 'CLI build failed' }
-    $Jar = Join-Path $PSScriptRoot 'cli/target/atomic-api-0.1.0.jar'
+    $Jar = Join-Path $PSScriptRoot 'cli/target/atomic-api-0.2.0.jar'
 }
 if (-not (Test-Path -LiteralPath $Jar -PathType Leaf)) { throw 'Built CLI artifact is missing' }
 $Prefix = [IO.Path]::GetFullPath($Prefix)

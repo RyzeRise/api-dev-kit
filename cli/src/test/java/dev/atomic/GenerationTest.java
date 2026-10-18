@@ -16,6 +16,48 @@ class GenerationTest {
         Path.of(multi ? "../examples/multi-handler.yaml" : "../examples/single-handler.yaml"));
   }
 
+  @Test
+  void separateResponseConverterCompilesChecksAndReruns() throws Exception {
+    Fixtures.framework(root);
+    Fixtures.external(root, false);
+    var c = Contract.load(Path.of("../examples/fault-response.yaml"));
+    var p = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, p).apply();
+    compileAll();
+    var index = SourceIndex.scan(root);
+    String delegate = Files.readString(index.path(index.type(c.target().delegate())));
+    String converter = Files.readString(index.path(index.type(c.target().responseConverter())));
+    assertTrue(delegate.contains("ResourceResponseConverter.INSTANCE.toQueryResourceByAddressResponse(result)"), delegate);
+    assertFalse(delegate.contains("builderQueryResourceByAddressRsp"), delegate);
+    assertTrue(delegate.contains(".initCause(e)"), delegate);
+    assertTrue(delegate.contains("转换业务请求"), delegate);
+    assertTrue(converter.contains("result == null"), converter);
+    assertTrue(new Generator().plan(root, c, p).changes().isEmpty());
+    var report = new Checker(p).check(index, c);
+    assertEquals(0, report.exitCode(false), report.toString());
+    // Exception from response adaptation stays in the same boundary as the Facade invocation.
+    assertTrue(delegate.indexOf("try {") < delegate.indexOf("ResourceResponseConverter.INSTANCE"));
+  }
+
+  @Test
+  void nullFirstShortCircuitGuardIsAcceptedButAndGuardIsNot() throws Exception {
+    Fixtures.framework(root); Fixtures.external(root, false);
+    var c = Contract.load(Path.of("../examples/fault-response.yaml"));
+    var p = Profile.load(Fixtures.profile(root));
+    new Generator().plan(root, c, p).apply();
+    var index = SourceIndex.scan(root);
+    Path path = index.path(index.type(c.target().responseConverter()));
+    String original = Files.readString(path);
+    assertTrue(original.contains("result == null"));
+    Files.writeString(path, original.replace("result == null", "(result == null || result.getResourceName() == null)"));
+    var report = new Checker(p).check(SourceIndex.scan(root), c);
+    assertFalse(report.findings().stream().anyMatch(f -> f.rule().equals("API-009")), report.toString());
+    assertTrue(report.findings().stream().anyMatch(f -> f.rule().equals("API-008")), report.toString());
+    Files.writeString(path, original.replace("result == null", "result == null && false"));
+    report = new Checker(p).check(SourceIndex.scan(root), c);
+    assertTrue(report.findings().stream().anyMatch(f -> f.rule().equals("API-009") && f.severity().equals("ERROR")), report.toString());
+  }
+
   Profile registrationProfile() throws Exception {
     Path file=Fixtures.profile(root);
     Files.writeString(file, Files.readString(file)+"\ndisabledFacade:\n  configuration: com.example.sdk.DisabledConfiguration\n  mapField: disableMap\n");
@@ -231,7 +273,7 @@ class GenerationTest {
     assertFalse(Files.exists(root.resolve("function-sdk")));
     plan.apply();
     List<String> args =
-        new ArrayList<>(List.of("--release", "8", "-d", root.resolve("classes").toString()));
+        new ArrayList<>(List.of("--release", "8", "-encoding", "UTF-8", "-d", root.resolve("classes").toString()));
     try (var walk = Files.walk(root)) {
       walk.filter(p -> p.toString().endsWith(".java")).forEach(p -> args.add(p.toString()));
     }
@@ -311,7 +353,7 @@ class GenerationTest {
             root.resolve("src/main/java/com/example/service/ResourceDelegateImpl.java"));
     assertTrue(code.contains("context"));
     List<String> args =
-        new ArrayList<>(List.of("--release", "8", "-d", root.resolve("classes").toString()));
+        new ArrayList<>(List.of("--release", "8", "-encoding", "UTF-8", "-d", root.resolve("classes").toString()));
     try (var walk = Files.walk(root)) {
       walk.filter(p -> p.toString().endsWith(".java")).forEach(p -> args.add(p.toString()));
     }
@@ -350,7 +392,7 @@ class GenerationTest {
         new Generator().plan(root, Contract.load(input), Profile.load(Fixtures.profile(root)));
     plan.apply();
     List<String> args =
-        new ArrayList<>(List.of("--release", "8", "-d", root.resolve("classes").toString()));
+        new ArrayList<>(List.of("--release", "8", "-encoding", "UTF-8", "-d", root.resolve("classes").toString()));
     try (var walk = Files.walk(root)) {
       walk.filter(p -> p.toString().endsWith(".java")).forEach(p -> args.add(p.toString()));
     }
@@ -432,7 +474,7 @@ class GenerationTest {
 
   void compileAll() throws Exception {
     List<String> args =
-        new ArrayList<>(List.of("--release", "8", "-d", root.resolve("classes").toString()));
+        new ArrayList<>(List.of("--release", "8", "-encoding", "UTF-8", "-d", root.resolve("classes").toString()));
     try (var walk = Files.walk(root)) {
       walk.filter(p -> p.toString().endsWith(".java")).forEach(p -> args.add(p.toString()));
     }

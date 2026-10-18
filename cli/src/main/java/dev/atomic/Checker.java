@@ -98,6 +98,7 @@ public final class Checker {
   public Report check(SourceIndex input, Contract contract) {
     index = input;
     findings.clear();
+    findings.addAll(MavenParents.check(index.root()));
     facades.clear();
     discovered = 0;
     checked = 0;
@@ -343,30 +344,31 @@ public final class Checker {
         caught.getBody().getStatements().stream()
             .filter(Statement::isThrowStmt)
             .map(s -> s.asThrowStmt().getExpression())
-            .filter(Expression::isObjectCreationExpr)
-            .map(Expression::asObjectCreationExpr)
             .anyMatch(
-                created ->
-                    framework(
-                            created.getType().resolve().describe(),
-                            "externalException",
-                            "ServiceException")
-                        && created.getArguments().stream()
-                            .anyMatch(
-                                arg ->
-                                    arg.findAll(MethodCallExpr.class).stream()
-                                        .anyMatch(
-                                            m ->
-                                                m.getNameAsString().equals("getErrMsg")
-                                                    && m.getScope()
-                                                        .filter(Expression::isNameExpr)
-                                                        .map(
-                                                            s ->
-                                                                s.asNameExpr()
-                                                                    .getNameAsString()
-                                                                    .equals(variable))
-                                                        .orElse(false))));
-    if (!wraps)
+                thrown -> {
+                  if (thrown.isObjectCreationExpr())
+                    return wraps(thrown.asObjectCreationExpr(), variable);
+                  if (!thrown.isNameExpr()) return false;
+                  String name = thrown.asNameExpr().getNameAsString();
+                  // Only a directly initialized, unreassigned local is provable here.
+                  if (caught.findAll(AssignExpr.class).stream()
+                      .anyMatch(a -> a.getTarget().toString().equals(name))) return false;
+                  return caught.getBody().getStatements().stream()
+                      .filter(Statement::isExpressionStmt)
+                      .map(st -> st.asExpressionStmt().getExpression())
+                      .filter(Expression::isVariableDeclarationExpr)
+                      .flatMap(e -> e.asVariableDeclarationExpr().getVariables().stream())
+                      .filter(v -> v.getNameAsString().equals(name))
+                      .flatMap(v -> v.getInitializer().stream())
+                      .filter(Expression::isObjectCreationExpr)
+                      .anyMatch(e -> wraps(e.asObjectCreationExpr(), variable));
+                });
+    if (!wraps && !caught.getBody().findAll(ReturnStmt.class).isEmpty())
+      incomplete(
+          caught,
+          "Failure return contract requires manual review; do not replace it with an exception just"
+              + " to satisfy the checker");
+    else if (!wraps)
       finding(
           "ERROR",
           "API-007",
@@ -394,11 +396,63 @@ public final class Checker {
                   f ->
                       f.toString().equals("Locale.ROOT")
                           || f.toString().equals("java.util.Locale.ROOT"));
-      if (!root) finding("WARN", "API-007", caught, "Locale.ROOT formatting not found");
+      boolean formatting =
+          caught.findAll(MethodCallExpr.class).stream()
+              .anyMatch(
+                  c ->
+                      c.getNameAsString().equals("format")
+                          && c.getScope()
+                              .map(Object::toString)
+                              .filter(v -> v.equals("String") || v.equals("java.lang.String"))
+                              .isPresent());
+      if (formatting && !root)
+        finding("WARN", "API-007", caught, "Locale.ROOT formatting not found");
     }
   }
 
+  private boolean wraps(ObjectCreationExpr created, String variable) {
+    return framework(
+            created.getType().resolve().describe(), "externalException", "ServiceException")
+        && created.getArguments().stream()
+            .anyMatch(
+                arg ->
+                    arg.findAll(MethodCallExpr.class).stream()
+                        .anyMatch(
+                            m ->
+                                m.getNameAsString().equals("getErrMsg")
+                                    && m.getArguments().isEmpty()
+                                    && m.getScope()
+                                        .filter(Expression::isNameExpr)
+                                        .map(
+                                            scope ->
+                                                scope
+                                                    .asNameExpr()
+                                                    .getNameAsString()
+                                                    .equals(variable))
+                                        .orElse(false)));
+  }
+
+  private static boolean rejectsNull(Expression expression, String parameter) {
+    if (expression.isEnclosedExpr())
+      return rejectsNull(expression.asEnclosedExpr().getInner(), parameter);
+    if (!expression.isBinaryExpr()) return false;
+    BinaryExpr binary = expression.asBinaryExpr();
+    if (binary.getOperator() == BinaryExpr.Operator.OR)
+      return rejectsNull(binary.getLeft(), parameter);
+    return binary.getOperator() == BinaryExpr.Operator.EQUALS
+        && (binary.getLeft().isNullLiteralExpr() && binary.getRight().toString().equals(parameter)
+            || binary.getRight().isNullLiteralExpr()
+                && binary.getLeft().toString().equals(parameter));
+  }
+
   private void responseBoundary(MethodCallExpr facadeCall, TryStmt enclosing) {
+    var owner = facadeCall.findAncestor(MethodDeclaration.class);
+    if (owner.isPresent()
+        && owner.get().getType().resolve().describe().equals("java.lang.String")) {
+      incomplete(
+          facadeCall, "String response adaptation requires manual review of the existing contract");
+      return;
+    }
     var assigned =
         facadeCall
             .getParentNode()
@@ -409,7 +463,7 @@ public final class Checker {
           "ERROR",
           "API-009",
           facadeCall,
-          "Capture the SDK result and convert it through a response builder");
+          "Capture the business result and convert it through a response converter");
       return;
     }
     String result = assigned.get().getNameAsString();
@@ -431,7 +485,7 @@ public final class Checker {
       if (builder.getArgument(i).isNameExpr()
           && builder.getArgument(i).asNameExpr().getNameAsString().equals(result)) position = i;
     if (position < 0) {
-      finding("ERROR", "API-009", builder, "Response builder does not receive SDK result");
+      finding("ERROR", "API-009", builder, "Response builder does not receive business result");
       return;
     }
     try {
@@ -445,14 +499,9 @@ public final class Checker {
       boolean guarded = false;
       if (method.getBody().isPresent() && !method.getBody().get().getStatements().isEmpty()) {
         var first = method.getBody().get().getStatement(0);
-        if (first.isIfStmt() && first.asIfStmt().getCondition().isBinaryExpr()) {
-          var condition = first.asIfStmt().getCondition().asBinaryExpr();
-          boolean nullEquality =
-              condition.getOperator() == BinaryExpr.Operator.EQUALS
-                  && (condition.getLeft().isNullLiteralExpr()
-                          && condition.getRight().toString().equals(parameter)
-                      || condition.getRight().isNullLiteralExpr()
-                          && condition.getLeft().toString().equals(parameter));
+        if (first.isIfStmt()) {
+          var condition = first.asIfStmt().getCondition();
+          boolean nullEquality = rejectsNull(condition, parameter);
           Statement rejection = first.asIfStmt().getThenStmt();
           if (rejection.isBlockStmt() && !rejection.asBlockStmt().getStatements().isEmpty())
             rejection = rejection.asBlockStmt().getStatement(0);
@@ -477,7 +526,7 @@ public final class Checker {
             "ERROR",
             "API-009",
             method,
-            "Response builder must reject null SDK result before conversion");
+            "Response builder must reject null business result before conversion");
     } catch (RuntimeException e) {
       incomplete(builder, "Response conversion cannot be resolved: " + e.getMessage());
     }
@@ -566,6 +615,6 @@ public final class Checker {
       finding("ERROR", "CONTRACT", operations.get(0), "Handler count/order differs from contract");
     if (contract.assembly().mode().equals("builder")
         && index.type(contract.assembly().builder()) == null)
-      finding("ERROR", "CONTRACT", impl, "Expected SDK Builder missing");
+      finding("ERROR", "CONTRACT", impl, "Expected business Builder missing");
   }
 }

@@ -48,7 +48,9 @@ public final class SourceIndex {
               .sorted()
               .toList()) {
         String relative = index.root.relativize(path).toString().replace('\\', '/');
-        if (relative.startsWith(".git/")
+        if (relative.startsWith(".atomic-api/")
+            || relative.contains("/.atomic-api/")
+            || relative.startsWith(".git/")
             || relative.contains("/target/")
             || relative.contains("/build/")
             || relative.contains("/generated-sources/")) continue;

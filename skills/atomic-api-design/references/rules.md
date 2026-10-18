@@ -1,62 +1,32 @@
-# 开发规则与检查证据
+# 分层与实现规则
 
-| 编号 | 规则 | 检查证据与限制 |
-|---|---|---|
-| API-001 | Delegate 保持外部契约，转换 SDK 请求 DTO | 跟踪 Converter 与实际参数；字段语义人工审查 |
-| API-002 | Facade 接收一个请求 DTO | 解析类型身份，ReqDto 命名仅为约定 |
-| API-003 | 组件管理获取 Facade，不绕过调用链 | 解析 getFacadeImpl、接收者和调用关系 |
-| API-004 | Facade 编排 Handler，必要时 Builder 汇总 | 解析实际类型与顺序，不以方法名 run 作为充分证据 |
-| API-005 | Handler pre/invoke/post 分工 | 检查覆写，业务职责仍需人工判断 |
-| API-006 | 内部使用 OpsApiException | 核对类型、声明、throw，保留 cause 和已有 addEntry |
-| API-007 | Delegate 转 ServiceException 并保留错误 | 追踪 getErrMsg 实际进入异常、操作标识及 Locale.ROOT |
-| API-008 | 不同失败原因分别校验 | OR+throw 仅 WARN，不能机械拆分 |
-| API-009 | SDK 与外部响应分开，null 结果失败 | 跟踪结果到 builder，核对空值分支与字段来源 |
-| API-010 | 英文步骤注释匹配实际编排 | 核对编号与步骤数量，描述语义人工确认 |
-| API-011 | 签名变更同步调用链 | 完整签名关联实现、调用和测试，缺失依赖为 INCOMPLETE |
+以下规则针对实际 API 调用链，不能套用到所有 Java 方法。先核对框架和现有契约，例子不是业务实现。
 
-## 校验示例
+| 编号 | 职责与检查边界 |
+|---|---|
+| API-001 | Delegate 通过请求 Converter 创建业务请求，通过组件管理获取 Facade。请求和响应 Converter 分开；新实现不在 Delegate 承担字段组装。 |
+| API-002 | Facade 使用单个业务 ReqDto，返回项目约定的 RspDto，字段归属业务公共契约；不强制放 SDK。 |
+| API-003 | 使用实际 Facade 注册注解、默认实现及禁用态注册；新增和重命名要核对完整注册链，不悄然改变 default 行为。 |
+| API-004 | Facade 只编排业务 Handler，单步直接返回；确需多来源匹配、聚合和计算时才引入 Builder。 |
+| API-005 | Handler 的预处理校验与构造原子请求，调用阶段获取能力并调用，后处理校验并转换原子响应。检查实际职责，不只检查方法名。 |
+| API-006 | 内部预期失败使用框架的业务异常；使用实际方法签名，不以广泛 catch 掩盖失败。 |
+| API-007 | Facade 调用及可能抛业务异常的响应转换处于原有异常适配范围；对外保留 getErrMsg、必要标识和 cause。已有 String 失败响应遵循原契约。 |
+| API-008 | 独立失败原因分别表达；同一缺失响应的 null/空消息短路检查可以合并。OR 不能机械判为错误。 |
+| API-009 | 响应 Converter 检查完整性并映射字段；不能查询外部能力或重算业务状态。保留 null/空集合区别、字段类型/默认值、列表顺序和错误文本。 |
+| API-010 | 使用精炼中文注释说明业务意图，异常英文文本具体可诊断。String.format 使用 Locale.ROOT；不为已有拼接字符串强加格式化。日志按项目 entry/ret 约定配对，不为 ret 增加 try/catch。 |
+| API-011 | 先查真实源码和依赖，无法解析记 INCOMPLETE；不把代码骨架或人工待审项报告为完成。 |
+| MAVEN-001 | 本地父 POM 的 GA 相同而版本不同时报错；新增模块在主线升级后也要同步父版本。属性无法静态展开只提示复核；外部父 POM 不猜测。 |
 
-以下组合校验不能指出具体失败项：
+## 纯转换与业务组装
 
-```java
-if (isBlank(value.getName()) || isBlank(value.getAddress())) {
-    throw new OpsApiException("Name or address is empty");
-}
-```
+请求 Converter 只做入口请求到业务请求。响应 Converter 与请求 Converter 同业务目录，负责业务响应到 REST 模型或 String，响应节点映射也归它。原子 DTO 到业务 DTO 的 Converter 位于业务实现模块。Converter 不依赖外部查询、组件管理或网元操作。
 
-先检查 value，再分别校验 name/address，并给出不同错误信息。
+MapStruct 按项目既有方式使用 INSTANCE；需要时使用 default 方法保留校验。新字段需要显式映射与 unmappedTargetPolicy 检查。核对 processor、Lombok binding 和真实生成实现；只在证实配置缺失时补齐，不凭注解存在宣称运行可用。通用生成器采用可编译的 default 映射以避免强加第三方依赖；它不会假装生成了 MapStruct 业务实现。
 
-以下过滤不抛模糊异常，可以使用 OR：
+Builder 负责有业务含义的计算、匹配和聚合；不因复制字段再建一层 Builder。Helper 只暴露必要的业务入口；框架生命周期覆盖方法和 Converter 映射方法不受单入口限制。
 
-```java
-if (item == null || item.getId() == null) {
-    continue;
-}
-```
+## 兼容性
 
-## 层次边界
+公开工具名、外部 API 路径和 wire 字段不能随内部重命名变化。删除 JSON 注解前，核对真实 ObjectMapper 配置和 wire 契约；仅删除与 Java 字段同名且确实冗余的注解，不删除大小写、连字符、命名空间或兼容别名。全局忽略未知字段已覆盖目标消费者时才去掉重复类注解。
 
-Delegate：保持对外参数，转换请求 DTO，获取 Facade，调用并组装外部响应，转换异常。
-
-Facade：请求 DTO + OpsApiException；按顺序编排；多结果需要汇总才用 Builder。
-
-Handler：preHandler 校验与上下文；invokeAtomicApi 底层调用；postHandler 结果校验与输出。内部输入不强制 DTO 化。
-
-Builder：汇总输出，不发起底层查询。异常定位沿用既有 addEntry 策略。
-
-default 返回行为不是已统一范式，必须由项目明确，不自动改变现有默认方法。
-
-## Facade 生成基准
-
-以项目确认的 LDP Facade 实现为结构标准：
-
-- 单 Handler 直接 `return handler.run(request)`，不生成无意义的结果中间变量。
-- 多 Handler 按 contract 顺序执行，前步结果传给后步；需要汇总时最后调用 Builder。
-- Facade 不承担底层查询、结果字段映射和异常转换；内部异常沿调用链抛出。
-- 类声明、注解、注入字段、泛型和方法签名统一使用 import 与短类型名；名称冲突时保留必要的全限定名。
-- Handler 的 pre/invoke/post 职责分离；未知底层能力明确保留未实现异常，不能把骨架当作业务完成。
-- 编排步骤语义、字段名和 Handler 所在包以项目示例与 contract 为准，不能从类型名猜出业务逻辑。
-
-生成器回归测试覆盖单步骤直接返回、多步骤调用顺序和 Builder 汇总、import、编译及重复生成零变更。
-
-新增 import 必须放入对应包分组并排序，不能追加到文件 import 区域末尾。需要禁用 Facade 注册时，通过项目 profile 的可选 `disabledFacade.configuration` 和 `disabledFacade.mapField` 明确目标；交由 generate 管理注册和 import，不用脚本拼接全限定类型名。
+支持版本按真实能力首次出现的版本定义，不为新能力补空旧版本。已有能力的旧实现和 Latest/注册链保留。DTO 内部类、命名和模块接线等业务规则见对应领域 skill；不能机械批量重命名所有接口。

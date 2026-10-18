@@ -78,6 +78,7 @@ class CliTest {
         Profile.load(root.resolve(".atomic-api/profile.yaml")).type("handlerBase"));
     Path other = Files.createTempDirectory("atomic-init-other-");
     Files.delete(root.resolve(".atomic-api/contracts/example.yaml"));
+    Files.delete(root.resolve(".atomic-api/contracts/fault-response.yaml"));
     Files.delete(root.resolve(".atomic-api/contracts"));
     try {
       Files.createSymbolicLink(root.resolve(".atomic-api/contracts"), other);
@@ -95,6 +96,8 @@ class CliTest {
     assertFalse(Files.exists(root.resolve(".atomic-api")));
     assertEquals(0, run("init", "--repo", root.toString(), "--agent", "codex"));
     assertTrue(Files.exists(root.resolve(".agents/skills/atomic-api-design/SKILL.md")));
+    assertTrue(Files.exists(root.resolve(".agents/skills/ipran-fault-api-dev/references/verification.md")));
+    assertDoesNotThrow(() -> Contract.load(root.resolve(".atomic-api/contracts/fault-response.yaml")));
     assertEquals(0, run("init", "--repo", root.toString(), "--agent", "claude"));
     assertTrue(Files.exists(root.resolve(".claude/skills/atomic-api-design/references/rules.md")));
   }

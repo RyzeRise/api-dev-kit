@@ -1,0 +1,38 @@
+version: 1
+operation: queryResourceByAddress
+description: 根据地址查询资源名称
+target:
+  facade: com.example.common.fault.facadeinterface.resource.ResourceFacade
+  implementation: com.example.app.ResourceFacadeImpl
+  delegate: com.example.service.ResourceDelegateImpl
+  converter: com.example.service.converter.resource.ResourceRequestConverter
+  responseConverter: com.example.service.converter.resource.ResourceResponseConverter
+models:
+  request:
+    class: com.example.common.fault.dto.resource.QueryResourceByAddressReqDto
+    sourceRoot: ipran-app-api-common/src/main/java
+    fields:
+      - name: address
+        type: java.lang.String
+        description: 查询地址
+        required: true
+        diagnostic: true
+  response:
+    class: com.example.common.fault.dto.resource.QueryResourceByAddressRspDto
+    sourceRoot: ipran-app-api-common/src/main/java
+    fields:
+      - name: resourceName
+        type: java.lang.String
+        description: 资源名称
+externalResponse: com.example.model.QueryResourceByAddressRsp
+steps:
+  - id: resource
+    handler: com.example.app.GetResourceByAddressApiHandler
+    sourceRoot: app/src/main/java
+    input: request
+    inputType: com.example.common.fault.dto.resource.QueryResourceByAddressReqDto
+    outputType: com.example.common.fault.dto.resource.QueryResourceByAddressRspDto
+assembly:
+  mode: direct
+responseBindings:
+  resourceName: resourceName

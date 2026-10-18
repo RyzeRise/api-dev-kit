@@ -25,7 +25,16 @@ public record Contract(
   static final Set<String> PRIMITIVES =
       Set.of("int", "long", "double", "float", "short", "byte", "boolean", "char");
 
-  public record Target(String facade, String implementation, String delegate, String converter) {}
+  public record Target(
+      String facade,
+      String implementation,
+      String delegate,
+      String converter,
+      String responseConverter) {
+    public Target(String facade, String implementation, String delegate, String converter) {
+      this(facade, implementation, delegate, converter, null);
+    }
+  }
 
   public record Field(
       String name, String type, String description, boolean required, boolean diagnostic) {}
@@ -89,12 +98,14 @@ public record Contract(
         target != null && models != null && assembly != null && steps != null && !steps.isEmpty(),
         "Required contract section missing");
     List<String> targets =
-        Arrays.asList(
-            target.facade,
-            target.implementation,
-            target.delegate,
-            target.converter,
-            externalResponse);
+        new ArrayList<>(
+            Arrays.asList(
+                target.facade,
+                target.implementation,
+                target.delegate,
+                target.converter,
+                externalResponse));
+    if (target.responseConverter != null) targets.add(target.responseConverter);
     targets.forEach(Contract::fqn);
     require(new HashSet<>(targets).size() == targets.size(), "Target types must differ");
     model(models.request);
@@ -142,7 +153,7 @@ public record Contract(
           "direct does not accept builder fields");
       require(
           steps.size() == 1 && steps.get(0).outputType.equals(models.response.className),
-          "direct requires one matching SDK result");
+          "direct requires one matching business result");
     } else {
       require("builder".equals(assembly.mode), "Unknown assembly mode");
       fqn(assembly.builder);
@@ -156,7 +167,7 @@ public record Contract(
     responseBindings.forEach(
         (dest, src) -> {
           id(dest);
-          require(resultFields.contains(src), "Unknown SDK result field: " + src);
+          require(resultFields.contains(src), "Unknown business result field: " + src);
         });
   }
 
@@ -213,9 +224,16 @@ public record Contract(
       var reference = type.asClassOrInterfaceType();
       fqn(reference.getNameWithScope());
       reference.getTypeArguments().ifPresent(args -> args.forEach(t -> validateType(t, true)));
-      reference.getScope().ifPresent(scope -> require(
-          scope.findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class).stream()
-              .noneMatch(t -> t.getTypeArguments().isPresent()), "Parameterized outer types unsupported"));
+      reference
+          .getScope()
+          .ifPresent(
+              scope ->
+                  require(
+                      scope
+                          .findAll(com.github.javaparser.ast.type.ClassOrInterfaceType.class)
+                          .stream()
+                          .noneMatch(t -> t.getTypeArguments().isPresent()),
+                      "Parameterized outer types unsupported"));
     }
   }
 

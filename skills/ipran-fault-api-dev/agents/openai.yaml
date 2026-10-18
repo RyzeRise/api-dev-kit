@@ -1,0 +1,4 @@
+interface:
+  display_name: "IPRAN 故障 API 开发"
+  short_description: "审查故障业务分层、转换器、原子版本与 Maven 模块接线"
+  default_prompt: "使用 $ipran-fault-api-dev 实现或审查 IPRAN 故障 API，并验证兼容性和模块构建。"

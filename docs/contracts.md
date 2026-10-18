@@ -14,12 +14,13 @@ contract 描述设计意图；源码描述当前实现。新增 API 时生成器
 |---|---|
 | version | 当前固定 1 |
 | operation / description | Java 方法名及用途 |
-| target | Facade、实现、Delegate、Converter 的完整类型名；现有类型可以自动识别，首版 contract 保留明确目标用于消除歧义 |
-| models | 请求 DTO、SDK 响应 DTO 的完整类型、sourceRoot、字段及非空约束 |
+| target | Facade、实现、Delegate、请求 Converter 的完整类型名；现有类型可以自动识别，首版 contract 保留明确目标用于消除歧义 |
+| target.responseConverter | 可选独立响应 Converter，新增业务推荐指定；省略保留旧 Delegate 私有映射兼容路径 |
+| models | 请求 DTO、业务响应 DTO 的完整类型、sourceRoot、字段及非空约束 |
 | externalResponse | 已有外部响应完整类型名，不生成/修改其模型 |
 | steps | 按顺序执行的 Handler；声明 id、类、输出类型、输入绑定、输入类型及 sourceRoot |
 | assembly | direct 直接返回末步结果，或 builder 汇总所有步骤 |
-| responseBindings | 外部响应字段来自 SDK 结果的字段路径 |
+| responseBindings | 外部响应字段来自 业务结果的字段路径 |
 
 sourceRoot 是仓库内相对源码根目录，与 package 分开；不能指向仓库外。缺失目标文件的创建需要 profile 给出明确模块定位。
 
@@ -37,12 +38,18 @@ request/response 模型必须不同且至少一个字段。第一版不生成不
 
 步骤只能引用前序步骤；拒绝重复 id、自引用、前向引用和环。request 字段必须在 contract 中存在，步骤输出字段是否存在需在生成阶段通过源码解析验证。校验脚本不会假装证明外部类型字段存在。
 
-direct 模式只支持单 Handler，且其输出类型必须等于 SDK 响应类型；多 Handler 使用 builder，参数固定为完整 request + 按顺序排列的步骤结果，字段映射由开发者补充。
+direct 模式只支持单 Handler，且其输出类型必须等于 业务响应类型；多 Handler 使用 builder，参数固定为完整 request + 按顺序排列的步骤结果，字段映射由开发者补充。
 
-responseBindings 的 key 是外部响应字段，value 为 SDK 结果字段名。Schema 与设计验证可检查 value 是否声明；外部 setter、getter 和类型兼容性由 AST 检查。没有完整类型信息时报告 INCOMPLETE。
+responseBindings 的 key 是外部响应字段，value 为 业务结果字段名。Schema 与设计验证可检查 value 是否声明；外部 setter、getter 和类型兼容性由 AST 检查。没有完整类型信息时报告 INCOMPLETE。
 
 ## 不保存的内容
 
 不保存 import 列表、真实方法行号、源文件摘要或源码识别结果。这些应从源码/生成计划获得，避免双份事实。
 
 不在每份 contract 重复异常类、注入注解、Handler 基类等框架设置。这些属于项目级 profile。
+
+## 独立响应适配
+
+`fault-response.yaml` 演示公共业务模块中的 ReqDto/RspDto 和 service 同目录的 RequestConverter/ResponseConverter。所有 target FQN 互不相同，不能与生成 DTO/Handler/Builder 冲突。
+
+当前生成器只支持可构造且有 setter 的外部对象响应；String 返回、内部节点 DTO、请求字段回填和 MapStruct 处理按真实项目人工实现。不要修改公开契约来绕过生成器限制。详见 [skill 的能力边界](../skills/atomic-api-design/references/contracts.md)。

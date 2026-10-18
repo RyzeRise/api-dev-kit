@@ -2,7 +2,9 @@
 
 中文开发 Skill + API contract + Java AST 骨架生成器/检查器。
 
-面向 Delegate → SDK Facade → ApiHandler → Builder 分层架构。**当前提供可运行的 0.1.0 版本**：支持单 Handler 与多 Handler 顺序编排，默认预览，显式应用，独立源码检查。生成的是可编译的业务骨架，不是已实现业务。
+面向 Delegate → 业务 Facade → Handler → 原子能力的分层架构，字段转换由 Converter 承担，确需业务汇总时使用 Builder。**当前版本 0.2.0**：通用设计 skill 与 IPRAN 故障业务 skill 分开，CLI 支持独立响应转换器和本地 Maven 父版本检查。默认预览、显式应用；生成的是业务骨架，不是已实现业务。
+
+本次重构将专家反馈整理为职责、兼容性与验证规则：公共业务 DTO 不强制进入 SDK；单契约节点可作为响应内部类；内部 get 命名不改变已发布 query 工具或外部路径；JSON 注解按真实 wire 契约判断；构建失败先查本次变更、父版本、Reactor 与 classpath。可自动证明的规则进入 CLI，业务语义保留明确的人工审查边界。
 
 ## 快速试用
 
@@ -32,7 +34,7 @@ atomic-api init
 atomic-api check --format json
 ```
 
-`init` 默认只创建 `.atomic-api/`：配置为 `.atomic-api/profile.yaml`，示例为 `.atomic-api/contracts/example.yaml`，Skill 为 `.atomic-api/skills/atomic-api-design/`。无法自动识别框架时生成明确标注的待配置草稿，使用前核对。再次 init 保留已有文件。
+`init` 默认只创建 `.atomic-api/`：配置为 `.atomic-api/profile.yaml`，示例为 `.atomic-api/contracts/example.yaml`，Skill 为 `.atomic-api/skills/` 下的 `atomic-api-design` 和 `ipran-fault-api-dev`。无法自动识别框架时生成明确标注的待配置草稿，使用前核对。再次 init 保留已有文件。
 
 初始化还预留 `.atomic-api/work/`，临时计划、日志、调试脚本、参数文件和编译产物统一保存到 `.atomic-api/work/<operation>/`，不散落在 `.atomic-api/` 根目录。工作目录默认忽略版本管理；`generate`、`check` 默认输出到终端，不自动生成日志文件。已有文件不会被 init 移动或删除。
 
@@ -51,7 +53,7 @@ atomic-api init --agent codex
 atomic-api demo --repo ../atomic-api-demo
 ```
 
-demo 仅接受空目录，创建虚构框架、外部响应模型与两份 contract，不连接真实服务。
+demo 仅接受空目录，创建虚构框架、外部响应模型与三份 contract，不连接真实服务。
 
 预览并生成单 Handler API：
 
@@ -74,6 +76,12 @@ mvn -f ../atomic-api-demo/pom.xml test
 
 CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 和包含安装脚本的 `atomic-api-cli` 构建产物。以工作流实际成功状态为准。
 
+## 独立响应转换器
+
+新 contract 可指定 `target.responseConverter`：请求 Converter 只转请求，响应 Converter 校验并复制业务响应字段，Delegate 在原有 try 范围调用它。参考 [故障业务对象响应示例](examples/fault-response.yaml)，在另一个空 demo 目录单独试用；它与旧单 Handler 示例是同一操作的两种设计，不能同时应用到同一实现类。
+
+省略新字段的旧 contract 继续使用 Delegate 私有映射方法。这个兼容路径不改变新业务推荐规范。生成器不自动实现 String 响应、嵌套节点 DTO、实际原子调用或 MapStruct 注解处理；这些按领域 skill 和真实项目实现。
+
 ## 用于实际项目
 
 1. 复制一份示例 contract，填写真实操作、请求/响应、已有外部模型和 Handler 步骤。
@@ -84,7 +92,7 @@ CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 和包含安装脚�
 
 已有 Delegate 实现外部接口时，生成器解析其准确方法签名，保留 context 等额外参数；请求字段必须能按名字、类型绑定。重载或复杂签名不明确时停止，不猜测。
 
-**0.1.0 边界**：profile 支持 `facadeDefault: throw` 或显式 `return-null`；支持 Java 8/11/17/21 目标及完整限定的泛型集合字段；不改生成模型、不覆盖既有方法、不支持任意绑定表达式、复杂控制流或自动业务实现。Lombok 生成的方法若源码/依赖无法解析，需要补充编译后 classpath，或手工适配。详细规则及未覆盖项见 [使用约定](docs/cli.md)。
+**0.2.0 边界**：profile 支持 `facadeDefault: throw` 或显式 `return-null`；支持 Java 8/11/17/21 目标及完整限定的泛型集合字段；不改生成模型、不覆盖既有方法、不支持任意绑定表达式、复杂控制流或自动业务实现。Lombok 生成的方法若源码/依赖无法解析，需要补充编译后 classpath，或手工适配。详细规则及未覆盖项见 [使用约定](docs/cli.md)。
 
 ## 文档与 Skill
 
@@ -92,11 +100,12 @@ CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 和包含安装脚�
 - [CLI 与已实现范围](docs/cli.md)
 - [Contract 规范](docs/contracts.md)
 - [项目级 profile](docs/framework-profile.md)
-- [中文 Skill](skills/atomic-api-design/SKILL.md)
+- [通用设计 Skill](skills/atomic-api-design/SKILL.md)
+- [IPRAN 故障业务 Skill](skills/ipran-fault-api-dev/SKILL.md)
 - [Schema](schemas/api-contract.schema.json)
-- [单 Handler](examples/single-handler.yaml)、[多 Handler](examples/multi-handler.yaml)
+- [单 Handler](examples/single-handler.yaml)、[多 Handler](examples/multi-handler.yaml)、[独立响应 Converter](examples/fault-response.yaml)
 
-Skill 已随 CLI 打包，`atomic-api init` 可直接安装到项目。Skill 使用 PATH 中的 atomic-api 命令，无需保留工具源码仓库的绝对路径。
+两份 Skill 及其 references 均随 CLI 打包，`atomic-api init` 可直接安装到项目。升级时 init 仍保留本地已有文件；在临时目录初始化新版本，再逐文件对照合并已有 skill/profile，避免覆盖项目定制。Skill 使用 PATH 中的 atomic-api 命令，无需保留工具源码仓库的绝对路径。
 
 ## 测试
 
@@ -107,6 +116,6 @@ python scripts/validate_design.py
 python -m unittest discover -s tests -v
 ```
 
-Java 测试包含 AST 发现、异常传播、contract 校验、安全写入、生成源码的 Java 8 编译及 CLI 示例。Python 脚本只验证设计文件与示例，不代替 Java AST。
+Java 测试包含 AST 发现、异常传播、独立响应 Converter、Maven 父版本、contract 校验、安全写入、生成源码的 Java 8 编译及 CLI 示例。Python 脚本只验证设计文件与示例，不代替 Java AST。
 
 本仓库仅包含虚构 `com.example` 示例和通用工具，不包含业务仓库源码或环境凭据。

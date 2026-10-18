@@ -1,3 +1,9 @@
+# 当前版本说明
+
+0.2.0 将通用工作流和故障业务规范分开；独立响应 Converter、父 POM 版本检查、异常局部变量追踪、cause 保留及完整 skill 分发加入 CLI。当前能力与边界见 [CLI 文档](cli.md)。下文为历史实施记录，不作为现行规则；其中早期“只允许 facadeDefault=throw”等限制已由后续实现取代。
+
+验证记录：Maven verify 成功，76 项 Java 测试通过；25 项 Python 测试通过，无跳过。打包 CLI 在独立空目录完成新响应 Converter 的预览/应用、Java 8 编译、检查与重复 NOOP；完整安装两份 skill 及 references，并复现本地父版本错配、修正后恢复检查通过。Windows 启动脚本已更新，当前主机未执行 Windows 测试，其结果以 CI 为准。
+
 # 实现记录
 
 计划：docs/superpowers/plans/2026-10-15-atomic-api-design.md。

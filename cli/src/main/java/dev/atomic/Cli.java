@@ -16,7 +16,7 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.1.0\n"
+            "atomic-api 0.2.0\n"
                 + "  atomic-api init [--agent codex|claude|cursor|none]\n"
                 + "  atomic-api demo --repo <empty-directory>\n"
                 + "  atomic-api generate --contract <api.yaml> [--profile <framework.yaml>]"
@@ -126,7 +126,7 @@ public final class Cli {
                           "schemaVersion",
                           1,
                           "toolVersion",
-                          "0.1.0",
+                          "0.2.0",
                           "scope",
                           repo.toString(),
                           "report",

@@ -73,7 +73,10 @@ def validate_contract(contract, schema):
     Draft202012Validator(schema).validate(contract)
     if not valid_name(contract["operation"]):
         raise ValueError("Invalid Java operation")
-    for value in list(contract["target"].values()) + [contract["externalResponse"]]:
+    targets = list(contract["target"].values()) + [contract["externalResponse"]]
+    if len(set(targets)) != len(targets):
+        raise ValueError("Target types must differ")
+    for value in targets:
         check_type_name(value)
 
     models = contract["models"]
@@ -134,7 +137,7 @@ def validate_contract(contract, schema):
         if len(contract["steps"]) != 1:
             raise ValueError("direct assembly requires exactly one Handler")
         if contract["steps"][0]["outputType"] != models["response"]["class"]:
-            raise ValueError("direct output must equal the SDK response type")
+            raise ValueError("direct output must equal the business response type")
     else:
         roots.append(assembly["sourceRoot"])
         check_type_name(assembly["builder"])
@@ -170,17 +173,25 @@ def validate_repository(root=ROOT):
         validate_contract(load_yaml(example), schema)
         print("PASS contract: " + example.name)
 
-    skill = root / "skills/atomic-api-design/SKILL.md"
-    text = skill.read_text(encoding="utf-8")
-    frontmatter = text.split("---", 2)
-    if len(frontmatter) != 3 or frontmatter[0]:
-        raise ValueError("Invalid skill frontmatter")
-    meta = yaml.safe_load(frontmatter[1])
-    if set(meta) != {"name", "description"} or meta["name"] != skill.parent.name:
-        raise ValueError("Invalid skill metadata")
-    if not isinstance(meta["description"], str) or not meta["description"].strip():
-        raise ValueError("Missing skill description")
-    print("PASS skill metadata")
+    skills = sorted((root / "skills").glob("*/SKILL.md"))
+    if not skills:
+        raise ValueError("No skills")
+    for skill in skills:
+        text = skill.read_text(encoding="utf-8")
+        frontmatter = text.split("---", 2)
+        if len(frontmatter) != 3 or frontmatter[0]:
+            raise ValueError("Invalid skill frontmatter: " + str(skill))
+        meta = yaml.safe_load(frontmatter[1])
+        if set(meta) != {"name", "description"} or meta["name"] != skill.parent.name:
+            raise ValueError("Invalid skill metadata: " + str(skill))
+        if not isinstance(meta["description"], str) or not meta["description"].strip():
+            raise ValueError("Missing skill description")
+        print("PASS skill: " + meta["name"])
+    actual = {p.relative_to(root / "skills").as_posix()
+              for p in (root / "skills").rglob("*") if p.is_file() and p.name != "manifest.txt"}
+    manifest = (root / "skills/manifest.txt").read_text().splitlines()
+    if len(manifest) != len(set(manifest)) or set(manifest) != actual:
+        raise ValueError("Skill package manifest does not match skill assets")
 
     for document in root.rglob("*.md"):
         if ".git" in document.parts:

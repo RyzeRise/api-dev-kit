@@ -43,6 +43,48 @@ class CheckTest {
   }
 
   @Test
+  void failureStringContractIsNotRejectedAsWrongException() throws Exception {
+    source("return e.getErrMsg();");
+    var report = new Checker().check(SourceIndex.scan(root), null);
+    assertTrue(
+        report.findings().stream()
+            .anyMatch(
+                f ->
+                    f.severity().equals("INCOMPLETE")
+                        && f.message().contains("Failure return contract")),
+        report.toString());
+    assertFalse(
+        report.findings().stream()
+            .anyMatch(
+                f ->
+                    (f.rule().equals("API-007") || f.rule().equals("API-009"))
+                        && f.severity().equals("ERROR")),
+        report.toString());
+  }
+
+  @Test
+  void localExceptionPreservesDetailWithoutRequiringFormatting() throws Exception {
+    source(
+        "ServiceException wrapped = new ServiceException(e.getErrMsg()); wrapped.initCause(e);"
+            + " throw wrapped;");
+    var report = new Checker().check(SourceIndex.scan(root), null);
+    assertFalse(
+        report.findings().stream().anyMatch(f -> f.rule().equals("API-007")), report.toString());
+  }
+
+  @Test
+  void reassignedExceptionDoesNotCountAsPreservingDetail() throws Exception {
+    source(
+        "ServiceException wrapped = new ServiceException(e.getErrMsg()); wrapped = new"
+            + " ServiceException(\"lost\"); throw wrapped;");
+    var report = new Checker().check(SourceIndex.scan(root), null);
+    assertTrue(
+        report.findings().stream()
+            .anyMatch(f -> f.rule().equals("API-007") && f.severity().equals("ERROR")),
+        report.toString());
+  }
+
+  @Test
   void discoversFacadeWithoutContract() throws Exception {
     source("throw new ServiceException(e.getErrMsg());");
     assertEquals(1, new Checker().check(SourceIndex.scan(root), null).discoveredMethods());

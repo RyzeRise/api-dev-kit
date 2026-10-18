@@ -414,7 +414,7 @@ public final class Generator {
             + ") throws "
             + type("internalException")
             + " {throw "
-            + error("ATOMIC_API_UNIMPLEMENTED: map Handler results to SDK response")
+            + error("ATOMIC_API_UNIMPLEMENTED: map Handler results to business response")
             + ";}}");
   }
 
@@ -600,7 +600,7 @@ public final class Generator {
     int n = 0;
     for (var step : contract.steps()) {
       String variable = field(owner, step.handler(), step.id() + "ApiHandler");
-      body.append("// ").append(++n).append(". run ").append(step.id()).append(" query\n");
+      body.append("// ").append(++n).append(". 执行 ").append(step.id()).append(" 业务处理\n");
       if (contract.assembly().mode().equals("direct")) {
         body.append("return ").append(variable).append(".run(").append(binding(step)).append(");\n");
       } else {
@@ -610,9 +610,9 @@ public final class Generator {
     }
     if (!contract.assembly().mode().equals("direct")) {
       String variable = field(owner, contract.assembly().builder(), "resultBuilder");
-      body.append("// end. Assemble the query results of the above ")
+      body.append("// 汇总以上 ")
           .append(n)
-          .append(" apiHandler.\nreturn ")
+          .append(" 个 Handler 的业务结果。\nreturn ")
           .append(variable)
           .append(".build(request");
       for (var step : contract.steps()) body.append(',').append(stepVariable(step.id()));
@@ -642,10 +642,15 @@ public final class Generator {
         String.join(
             ",", contract.models().request().fields().stream().map(Contract.Field::name).toList());
     String builder = "builder" + Contract.simple(contract.externalResponse());
+    String responseConverter = contract.target().responseConverter();
+    String responseMethod = "to" + Contract.cap(contract.operation()) + "Response";
+    String responseCall =
+        responseConverter == null ? builder : responseConverter + ".INSTANCE." + responseMethod;
     String reqVar = local("request"),
         facadeVar = local("facade"),
         resultVar = local("result"),
-        errorVar = local("e");
+        errorVar = local("e"),
+        wrappedVar = local("wrappedException");
     StringBuilder diagnosticPattern = new StringBuilder(contract.operation() + " failed"),
         diagnosticArgs = new StringBuilder();
     for (var f : contract.models().request().fields())
@@ -656,7 +661,7 @@ public final class Generator {
     diagnosticPattern.append(", detailErrMsg: %s");
     diagnosticArgs.append(errorVar).append(".getErrMsg()");
     String body =
-        "// 1. build request DTO\n"
+        "// 1. 转换业务请求\n"
             + request
             + " "
             + reqVar
@@ -667,7 +672,7 @@ public final class Generator {
             + "("
             + args
             + ");\n"
-            + "// 2. invoke Facade\n"
+            + "// 2. 调用业务 Facade\n"
             + contract.target().facade()
             + " "
             + facadeVar
@@ -687,20 +692,30 @@ public final class Generator {
             + "("
             + reqVar
             + ");return "
-            + builder
+            + responseCall
             + "("
             + resultVar
             + ");}catch("
             + type("internalException")
             + " "
             + errorVar
-            + "){throw new "
+            + "){"
+            + type("externalException")
+            + " "
+            + wrappedVar
+            + " = new "
             + type("externalException")
             + "(String.format(java.util.Locale.ROOT,"
             + quote(diagnosticPattern.toString())
             + ","
             + diagnosticArgs
-            + "));}";
+            + "));"
+            + wrappedVar
+            + ".initCause("
+            + errorVar
+            + ");throw "
+            + wrappedVar
+            + ";}";
     String declarationParameters = parameters();
     String annotation = "";
     if (!owner.getImplementedTypes().isEmpty() || !owner.getExtendedTypes().isEmpty()) {
@@ -720,7 +735,7 @@ public final class Generator {
         String name = signature.getDeclaration().getParam(i).getName(),
             javaType = signature.getParamType(i).describe();
         Contract.require(
-            !Set.of(reqVar, facadeVar, resultVar, errorVar).contains(name),
+            !Set.of(reqVar, facadeVar, resultVar, errorVar, wrappedVar).contains(name),
             "INCOMPLETE: extra external parameter collides with a generated local: " + name);
         actualParameters.add(javaType + " " + name);
         actualTypes.put(name, javaType);
@@ -765,12 +780,19 @@ public final class Generator {
                     .append("(result.")
                     .append(modelGetter(contract.models().response(), src))
                     .append(");"));
+    var responseOwner = responseConverter == null ? owner : target(responseConverter, true);
+    if (responseConverter != null) {
+      if (responseOwner.getFieldByName("INSTANCE").isEmpty())
+        responseOwner.addMember(
+            StaticJavaParser.parseBodyDeclaration(
+                responseConverter + " INSTANCE = new " + responseConverter + "() {};"));
+    }
     addMethod(
-        owner,
-        "private "
+        responseOwner,
+        (responseConverter == null ? "private " : "default ")
             + contract.externalResponse()
             + " "
-            + builder
+            + (responseConverter == null ? builder : responseMethod)
             + "("
             + response
             + " result) throws "
