@@ -52,7 +52,7 @@ final class Initializer {
         }
     }
     assets.put(
-        ".atomic-api/contracts/example.yaml", resource("/demo/contracts/single-handler.yaml"));
+        ".atomic-api/contracts/example.yaml", resource("/demo/contracts/strict-handler.yaml"));
     assets.put(
         ".atomic-api/contracts/fault-response.yaml",
         resource("/demo/contracts/fault-response.yaml"));

@@ -1,82 +1,68 @@
-# CLI 使用约定
+# CLI：固定开发路径
 
-安装：源码仓库运行 `sh install.sh`（macOS/Linux）或 `./install.ps1`（Windows PowerShell）。安装脚本将 atomic-api 注册为用户命令；日常无需输入 Java 启动命令。
+0.3.0 的新增入口是 new，验收入口是 verify。项目维护者完成一次 init/profile/roles 配置后，代码代理只填写业务事实、实现占位并依据 FIX 修复。
 
-```bash
-atomic-api -h
-atomic-api init
+```text
 atomic-api init --agent codex
-atomic-api demo --repo <empty-directory>
-atomic-api generate --repo <path> --contract <api.yaml> --profile <framework.yaml> --dry-run
-atomic-api generate --repo <path> --contract <api.yaml> --profile <framework.yaml> --apply
-atomic-api check --repo <path>
-atomic-api check --repo <path> --contract <api.yaml> --format json
+atomic-api new --operation queryCircuit --business circuit
+atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
+atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --apply
+atomic-api verify --contract .atomic-api/contracts/queryCircuit.yaml --format json
 ```
 
-所有命令的 --repo 默认当前目录。generate 默认 dry-run；`--dry-run` 与 `--apply` 互斥。不支持隐式覆盖已有业务实现，不提供 force 覆盖开关。
+## new 与生成
 
-## 项目初始化
+new 要求实际 profile.roles，不自动发现或猜测角色。operation/business 必须是 Java 标识符；名称来自需求而不是全局 API 表。类名和目录确定后，只填写 description、models.request.fields、models.response.fields、externalResponse、responseBindings。空草稿不通过 schema 校验；再次 new 同名契约报冲突且不覆盖。
 
-init 默认只在 `.atomic-api/` 内创建文件：`profile.yaml`、`contracts/example.yaml`、`contracts/fault-response.yaml`、`schemas/api-contract.schema.json`、`skills/atomic-api-design/` 与 `skills/ipran-fault-api-dev/`（含完整 references）以及忽略 reports/cache 的内部 .gitignore。所有既有文件保留，写入前检查全部目标路径并拒绝符号链接。
+v2 约束请求 ReqDto、响应 RspDto、同目录且独立的 RequestConverter/ResponseConverter，以及所有目标与角色配置的位置一致。generate 写前执行角色校验；已有业务体不同则 CONFLICT，不提供 force。目标 REST 模型已存在，缺少或签名不明确则停止；不修改生成模型。
 
-已有根目录旧配置时，init 校验并原样复制到新目录，保留原文件；旧配置无效时停止，不用示例遮蔽。没有旧配置时尝试识别唯一的框架类型和单一源码根；无法确认时生成标注“待配置”的 profile 草稿并说明原因，不假定示例配置适合当前项目。示例 contract 也需要按需求修改。
+多步确有汇总需要时配置 steps 和 assembly.builder，Builder 属于 implementation 角色。复杂控制流、内部节点 DTO、SimpleApiHandler、特定原子版本及 MapStruct 处理仍需维护者适配，不能改外部契约满足生成器。
 
-运行时优先使用 `.atomic-api/profile.yaml`，没有时兼容旧的 `atomic-api-profile.yaml`；显式 --profile 优先级最高。相对 contract/profile 参数以当前工作目录解析，source-root 以 --repo 解析。
+String 外部响应使用 java.lang.String、`responseBindings: {message: <业务字符串字段>}`，显式 errorMode=exception 或 message。工具生成非空/非空白消息检查；分别生成抛包装异常（保留 cause）或返回带 getErrMsg 的英文失败消息。未指定错误形式即阻塞，不由模型猜测。对象响应 errorMode 为 null/exception，不能选 message。
 
-可选 `init --agent codex|claude|cursor` 额外复制 Skill 到 `.agents/skills/`、`.claude/skills/`、`.cursor/skills/`，以便相应代理发现。默认 none 仅在 `.atomic-api/skills/` 保存原件，需要在代理中明确读取此路径。重新 init 保留两处已有 Skill，不自动覆盖用户定制版本，也不创建代理规则文件。
+## verify 与结果
 
-目录约定核对于 2026-10-16：[Codex](https://developers.openai.com/blog/skills-agents-sdk)、[Claude Code](https://code.claude.com/docs/en/skills)、[Cursor](https://cursor.com/docs/skills)。`.skills/` 不是这些工具统一采用的项目目录。
+verify 必须提供 v2 contract 和已配置角色的 profile。按契约限定本操作：旧操作的业务占位不会使本操作变成 SCAFFOLD；共享 Facade 仅检查指定方法。源码解析问题与本地 Maven 模型问题仍报告，不隐藏。
 
-安装脚本默认使用用户目录；shell 版把 PATH 写入当前 shell 对应的 .zshrc/.bashrc/.profile，PowerShell 版更新用户 PATH。--prefix（PowerShell -Prefix）可以指定安装位置，--jar（PowerShell -Jar）可使用现有构建产物。启动器优先 JAVA_HOME，其次 PATH；保留参数边界和退出码。运行仍需要 Java 17+，该依赖由命令入口封装。
+text/JSON 均包含规则、文件、行号、message 和 **fix**。JSON schemaVersion=2，report 保留发现数、检查数、manualChecks 和 readiness，顶层 status 为 BLOCKED 或 STRUCTURE_READY（普通 check 为 CHECKED），nextAction 指出下一步。
 
-profile 是项目级框架适配，不是 API 登记表。自动识别唯一时可省略；不唯一时报告候选并退出。
+| 规则 | 自动检查边界 |
+|---|---|
+| STRICT-001 | 角色 package/sourceRoot、ReqDto/RspDto、两个 Converter、真实文件位置 |
+| STRICT-002 | 实际请求绑定到 RequestConverter.INSTANCE，响应直接返回 ResponseConverter.INSTANCE；拒绝 Delegate 内构造/set REST 响应 |
+| STRICT-003 | Converter 非注入/可变状态、类型方向、允许的 DTO/集合映射调用、构造与 MapStruct 表达式 |
+| STRICT-004 | Facade 只编排 Handler/业务 Builder，不包含业务控制流或对象构造 |
+| STRICT-005 | invoke 中原子 ReqDto 构造/赋值、pre/post 中明显能力查找，以及 Handler 外层保存请求 DTO 状态 |
+| STRICT-006 | 公共 DTO 引入实现层/service 类型 |
+| STRICT-007 | 本操作占位标记、明显空调用阶段、生命周期直接 null 返回 |
+| STRICT-008 | 捕获业务异常后，实际抛出的包装异常保留 cause |
+| API-*、CONTRACT | 既有 Facade/异常/响应校验、字段及 Handler 次序检查 |
+| MAVEN-001 | 相同 GA 本地父 POM 的版本错配；外部父 POM不推断，无法展开属性只提示复核 |
 
-允许多次 `--source-root` 与 `--classpath`，不要求目标业务项目能先通过 Maven 编译。
+Converter 纯映射检查只覆盖可解析的具体 DTO、Java 常用集合/字符串方法及本类辅助方法，不证明全部程序副作用；不支持的外部映射需要维护者扩展规则或明确接管。嵌套 DTO、共享 DTO、继承方法、复杂类型/别名、请求字段回填等关系不能假装已证明。无法解析时 INCOMPLETE。
 
-## 输出
-
-generate 输出 CREATE / UPDATE / NOOP / CONFLICT、逐文件 diff、阻塞项、待实现业务位置及运行前摘要。apply 后再次解析并验证输出。任何阻塞在写入前发现时，所有目标文件保持原样。
-
-check 输出规则编号、文件、行号、发现依据和严重级别。机器报告含 schemaVersion、toolVersion、scope 与 report；report 含 discoveredMethods、checkedMethods、findings、manualChecks、readiness。
-
-0.2.0 的 coverage 为 discoveredMethods/checkedMethods；未完成项保留 INCOMPLETE finding。readiness 仅输出 SCAFFOLD / UNKNOWN，不自动证明业务 COMPLETE。完整方法级覆盖、列号及 SARIF 作为后续增强。
+只交骨架/缺少能力资料时可以保留 SCAFFOLD 并报告未验收；可以先编译检查接线。类型无法解析时也可以提前构建依赖、提供 classpath 后复查。业务交付必须同时完成结构验收和项目编译测试。验收成功只表示覆盖范围内结构无阻塞。原子能力确实执行、返回值语义、首次支持版本、JSON wire 名称、错误文本与测试充分性仍需业务验证；不得把 STRUCTURE_READY 写成业务完成。verify 不运行外部构建命令，继续执行实际项目编译与定向测试。
 
 ## 退出码
 
-| 退出码 | 含义 |
+| 码 | 含义 |
 |---|---|
-| 0 | 当前覆盖范围内无 ERROR、无 INCOMPLETE；仍需读取 WARN 和 readiness |
-| 1 | 发现明确违规、contract drift 或生成冲突 |
-| 2 | 参数/解析/环境错误、部分检查未完成、没有适用对象 |
+| 0 | 当前结构检查无 ERROR/INCOMPLETE；仍看 WARN、readiness 和 nextAction |
+| 1 | 确定违规、v2 业务占位或生成冲突 |
+| 2 | 配置/解析/类型信息不完整、无适用对象、verify 使用 v1 |
 
-INCOMPLETE 优先于 ERROR 决定退出码，完整 finding 列表仍保留。可选 `--warnings-as-errors`；不隐藏 WARN 来获得通过。
+INCOMPLETE 优先于 ERROR；完整 finding 仍输出。`--warnings-as-errors` 可按项目策略使用，不为了通过删告警或改规则。
 
-## 环境兼容
+## 存量兼容与安全边界
 
-CLI 运行环境建议 JDK 17；目标生成代码遵守目标 source level（含 Java 8）。支持 Windows、Linux 与 macOS 路径。不依赖 shell 展开、平台专用命令或目录名等于 package 的假设。
+`atomic-api check [--contract <file>]` 继续支持无需契约的存量审查；v1 generate 继续保持旧路径，但不能替代新 API 的 verify。
 
-当前不提供 HTTP 服务、不引入远程执行、不自动上传源码、不自动创建提交。
+所有命令默认当前目录，--repo 指定项目。显式 --profile 优先，否则读取 .atomic-api/profile.yaml，再兼容根目录 atomic-api-profile.yaml。相对 contract/profile 以当前工作目录解析，--source-root 相对 repo，可多次指定 source-root/classpath。
 
-## 当前自动检查范围
+init 仅写项目工具目录，可显式 --agent codex/claude/cursor 安装两份完整 skill。已有文件不覆盖，旧 profile 原样迁移，符号链接与越界写入拒绝；不修改 AGENTS.md/CLAUDE.md。升级需审阅本地定制差异。
 
-Facade 从 getFacadeImpl 类字面量和实现注解发现；Symbol Solver 解析接收者、重载、字段与继承。实现索引按源码真实 package 建立，支持物理目录不匹配。
+源码和 POM 检查跳过构建产物与 .atomic-api 临时副本。Maven XML 禁止 DTD/外部实体；检查不运行 Maven、不下载依赖、不计算完整 effective model。真实 Reactor、profile、BOM、classifier 和 classpath 由实际构建验证。
 
-提供 profile 时，框架异常、Handler 基类和 Facade 注解按解析后的完整类型名匹配；未提供 profile 时仅使用命名约定，实际项目建议配置 profile。延迟执行的 lambda 或匿名类内调用不计为当前 Facade 方法的直接 Handler 编排；响应 null 分支必须直接抛出内部异常，不能只在延迟代码中声明抛出。
+生成默认预览，apply 前核对依赖和内容摘要。相同结构 NOOP；不覆盖已有实现、并发修改或路径边界。多文件写入不是文件系统事务，恢复为有限尽力恢复。不自动上传源码、提交、部署或真实系统调用。
 
-自动检查请求 DTO 约定、异常声明、调用处 try/catch、getErrMsg 进入直接构造或直接初始化后抛出的外部异常、响应转换的首个 null 失败检查、组合 OR 校验风险。可选 contract 检查 DTO 字段类型、Handler 数量/顺序及预期类型存在。
-
-Converter 字段语义、Handler 生命周期职责、底层业务、注释含义与完整响应映射仍需人工审查；存在复杂别名、复杂分支、动态调用等无法证明的关系，应读取 INCOMPLETE/manualChecks，不能只看退出码。
-
-generate 只支持顺序链路和受限字段绑定；不覆盖既有实现。既有 Converter 需要接口形态，映射使用可执行 default 方法；不自动重写 MapStruct 已有方法。
-
-多个 API 可共享 Facade、实现类和 Delegate。注入字段按准确类型复用，名字被其他类型占用时分配新名字。已有实现类的其他接口保留，并补入缺失的目标 Facade。已有 DTO 使用解析出的 getX/isX/x 访问器；无法证明字段、访问器或 setter 类型一致时停止生成。
-
-## 0.2.0 新增与边界
-
-- 可选 `target.responseConverter` 生成独立 default 映射接口，Delegate 的响应转换位于 Facade 调用的同一异常适配范围。缺省字段保留旧行为，不迁移已有方法体。生成异常适配保留 getErrMsg 和 cause。
-- `MAVEN-001` 读取仓库内 POM，检查相同 GA 的本地父 POM 版本错配。支持默认/自定义 relativePath 和可展开的 POM 属性；显式空 relativePath、外部或不存在的父文件不强行匹配。无法静态展开的版本只 WARN。XML 禁止 DTD/外部实体；解析失败 INCOMPLETE。
-- 检查不调用 Maven、不下载依赖、不计算完整 effective model。属性激活、外部父链、profile、BOM、classifier 与实际 classpath 仍要通过失败任务命令核对。无 Facade 仍退出 2，Maven finding 继续完整输出。
-- 源码与 POM 检查跳过 `.atomic-api/` 内的临时副本和构建目录。OR 短路中左侧先检查响应 null 可识别；独立失败原因仍人工审查。
-- catch 中直接初始化且未重新赋值的异常局部变量可追踪 getErrMsg。String 失败返回不能机械改为异常，报告 INCOMPLETE 并按已有契约人工审查。cause 是否保留与业务字段语义仍需审查。
-- 仅调用 String.format 时才要求 Locale.ROOT，不对拼接消息误报警。
-- `init` 安装两份 skill，包内 manifest 与仓库实际文件集合一起验证。保留已有文件的升级原则不变；在临时目录初始化新版本后审阅差异并合并本地定制。
+安装与平台：运行 sh install.sh 或 ./install.ps1；用户目录安装，无需管理员。支持已构建 --jar/-Jar；启动器优先 JAVA_HOME、再用 PATH。日常无需输入 Java 命令，运行需 Java 17+，目标生成代码可为 Java 8。

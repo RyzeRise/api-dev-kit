@@ -27,6 +27,14 @@ public final class Generator {
     profile = p;
     c.validate();
     p.validate();
+    if (c.version() == 2) {
+      Conventions.validate(c, p);
+      var blockers =
+          MavenParents.check(source.root()).stream()
+              .filter(f -> !f.severity().equals("WARN"))
+              .toList();
+      Contract.require(blockers.isEmpty(), "MAVEN: 修复父 POM/模型错误后再生成: " + blockers);
+    }
     index = source;
     edited.clear();
     before.clear();
@@ -94,6 +102,7 @@ public final class Generator {
   }
 
   private void validateExternal() {
+    if (contract.stringResponse()) return;
     var external = index.declaration(contract.externalResponse());
     for (var binding : contract.responseBindings().entrySet()) {
       String expected =
@@ -157,14 +166,16 @@ public final class Generator {
             : GenerationPlan.safe(index.root(), index.path(index.type(fqn)));
     var generated =
         StaticJavaParser.parse("package " + fqn.substring(0, fqn.lastIndexOf('.')) + ";\n" + code);
-    shortenGeneratedTypes(generated.getTypes().get(0).asClassOrInterfaceDeclaration(), generated.getTypes().get(0));
+    shortenGeneratedTypes(
+        generated.getTypes().get(0).asClassOrInterfaceDeclaration(), generated.getTypes().get(0));
     String old = Files.exists(path) ? Files.readString(path) : null;
     if (old != null) {
       String source = old.startsWith("\uFEFF") ? old.substring(1) : old;
       // A file copyright header is independent of the generated implementation.
       source = source.replaceFirst("(?s)\\A\\s*/\\*\\s*\\*?\\s*Copyright\\b.*?\\*/\\s*", "");
       var previous = StaticJavaParser.parse(source);
-      shortenGeneratedTypes(previous.getTypes().get(0).asClassOrInterfaceDeclaration(), previous.getTypes().get(0));
+      shortenGeneratedTypes(
+          previous.getTypes().get(0).asClassOrInterfaceDeclaration(), previous.getTypes().get(0));
       previous.getImports().sort(Comparator.comparing(Object::toString));
       generated.getImports().sort(Comparator.comparing(Object::toString));
       Contract.require(
@@ -196,7 +207,9 @@ public final class Generator {
       }
       if (same) {
         Contract.require(
-            shortenGeneratedTypes(owner, existing.clone()).toString().replace("\r\n", "\n")
+            shortenGeneratedTypes(owner, existing.clone())
+                .toString()
+                .replace("\r\n", "\n")
                 .equals(method.toString().replace("\r\n", "\n")),
             "CONFLICT: existing method "
                 + owner.getNameAsString()
@@ -206,19 +219,20 @@ public final class Generator {
       }
     }
     // Format new members before preserving their tokens in the existing source.
-    method = StaticJavaParser.parseMethodDeclaration(
-        "    " + method.toString().replace("\r\n", "\n").replace("\n", "\n    "));
+    method =
+        StaticJavaParser.parseMethodDeclaration(
+            "    " + method.toString().replace("\r\n", "\n").replace("\n", "\n    "));
     LexicalPreservingPrinter.setup(method);
     owner.addMember(method);
   }
 
-  private <N extends Node> N shortenGeneratedTypes(
-      ClassOrInterfaceDeclaration owner, N method) {
+  private <N extends Node> N shortenGeneratedTypes(ClassOrInterfaceDeclaration owner, N method) {
     var cu = owner.findCompilationUnit().orElseThrow();
     Set<String> candidates = new LinkedHashSet<>();
     for (var t : method.findAll(ClassOrInterfaceType.class)) {
       String name = t.getNameWithScope();
-      if (name.contains(".") && Character.isLowerCase(name.charAt(0))
+      if (name.contains(".")
+          && Character.isLowerCase(name.charAt(0))
           && Character.isUpperCase(Contract.simple(name).charAt(0))) candidates.add(name);
     }
     for (var annotation : method.findAll(com.github.javaparser.ast.expr.AnnotationExpr.class)) {
@@ -229,15 +243,27 @@ public final class Generator {
     candidates.add("java.util.Locale");
     for (String fqn : candidates) {
       String simple = Contract.simple(fqn);
-      boolean conflict = cu.getImports().stream().anyMatch(i ->
-          !i.isStatic() && (i.isAsterisk()
-              || (Contract.simple(i.getNameAsString()).equals(simple)
-                  && !i.getNameAsString().equals(fqn))));
-      conflict |= cu.findAll(TypeDeclaration.class).stream()
-          .anyMatch(t -> t.getNameAsString().equals(simple));
-      conflict |= index.types().keySet().stream().anyMatch(name ->
-          name.equals(cu.getPackageDeclaration().map(p -> p.getNameAsString() + ".").orElse("")
-              + simple) && !name.equals(fqn));
+      boolean conflict =
+          cu.getImports().stream()
+              .anyMatch(
+                  i ->
+                      !i.isStatic()
+                          && (i.isAsterisk()
+                              || (Contract.simple(i.getNameAsString()).equals(simple)
+                                  && !i.getNameAsString().equals(fqn))));
+      conflict |=
+          cu.findAll(TypeDeclaration.class).stream()
+              .anyMatch(t -> t.getNameAsString().equals(simple));
+      conflict |=
+          index.types().keySet().stream()
+              .anyMatch(
+                  name ->
+                      name.equals(
+                              cu.getPackageDeclaration()
+                                      .map(p -> p.getNameAsString() + ".")
+                                      .orElse("")
+                                  + simple)
+                          && !name.equals(fqn));
       if (conflict) continue;
       boolean used = false;
       for (var t : method.findAll(ClassOrInterfaceType.class)) {
@@ -259,8 +285,10 @@ public final class Generator {
           used = true;
         }
       }
-      if (used && !fqn.substring(0, fqn.lastIndexOf('.')).equals("java.lang")
-          && !fqn.equals(cu.getPackageDeclaration().map(p -> p.getNameAsString() + ".").orElse("") + simple)) {
+      if (used
+          && !fqn.substring(0, fqn.lastIndexOf('.')).equals("java.lang")
+          && !fqn.equals(
+              cu.getPackageDeclaration().map(p -> p.getNameAsString() + ".").orElse("") + simple)) {
         cu.addImport(fqn);
       }
     }
@@ -286,9 +314,11 @@ public final class Generator {
       preferred = Character.toLowerCase(simple.charAt(0)) + simple.substring(1);
       while (owner.getFieldByName(preferred).isPresent()) preferred += "_";
     }
-    owner.addMember(shortenGeneratedTypes(owner,
-        StaticJavaParser.parseBodyDeclaration(
-            "@" + type("injectionAnnotation") + " private " + fqn + " " + preferred + ";")));
+    owner.addMember(
+        shortenGeneratedTypes(
+            owner,
+            StaticJavaParser.parseBodyDeclaration(
+                "@" + type("injectionAnnotation") + " private " + fqn + " " + preferred + ";")));
     return preferred;
   }
 
@@ -481,7 +511,8 @@ public final class Generator {
             + " request) throws "
             + type("internalException")
             + " {"
-            + (profile.facadeDefault().equals("return-null") ? "return null;"
+            + (profile.facadeDefault().equals("return-null")
+                ? "return null;"
                 : "throw " + error("Facade not assembled: " + contract.operation()) + ";")
             + "}");
   }
@@ -534,45 +565,78 @@ public final class Generator {
     String name = value.asClassOrInterfaceType().getNameWithScope();
     if (name.equals(contract.target().facade())) return true;
     try {
-      return value.resolve().asReferenceType().getQualifiedName().equals(contract.target().facade());
+      return value
+          .resolve()
+          .asReferenceType()
+          .getQualifiedName()
+          .equals(contract.target().facade());
     } catch (RuntimeException unresolved) {
       var cu = value.findCompilationUnit().orElseThrow();
       String fqn = contract.target().facade();
-      return name.equals(Contract.simple(fqn)) &&
-          (cu.getImports().stream().anyMatch(i -> !i.isStatic() && !i.isAsterisk() && i.getNameAsString().equals(fqn))
-              || cu.getPackageDeclaration().map(p -> (p.getNameAsString()+"."+name).equals(fqn)).orElse(false));
+      return name.equals(Contract.simple(fqn))
+          && (cu.getImports().stream()
+                  .anyMatch(
+                      i -> !i.isStatic() && !i.isAsterisk() && i.getNameAsString().equals(fqn))
+              || cu.getPackageDeclaration()
+                  .map(p -> (p.getNameAsString() + "." + name).equals(fqn))
+                  .orElse(false));
     }
   }
 
   private void disabledFacade() {
     var registration = profile.disabledFacade();
     if (registration == null) return;
-    Contract.require(index.type(registration.configuration()) != null,
+    Contract.require(
+        index.type(registration.configuration()) != null,
         "INCOMPLETE: disabled Facade configuration missing: " + registration.configuration());
     var owner = target(registration.configuration(), false);
-    Contract.require(owner.getFieldByName(registration.mapField()).isPresent(),
+    Contract.require(
+        owner.getFieldByName(registration.mapField()).isPresent(),
         "INCOMPLETE: disabled Facade map field missing");
     String scope = registration.mapField();
-    var matches = owner.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class).stream()
-        .filter(m -> m.getNameAsString().equals("put") && m.getArguments().size()==2
-            && m.getScope().map(x -> x.toString().equals(scope) || x.toString().equals("this."+scope)).orElse(false)
-            && m.getArgument(0).isClassExpr() && isFacadeType(m.getArgument(0).asClassExpr().getType()))
-        .toList();
-    Contract.require(matches.size()<2, "CONFLICT: duplicate disabled Facade registration");
+    var matches =
+        owner.findAll(com.github.javaparser.ast.expr.MethodCallExpr.class).stream()
+            .filter(
+                m ->
+                    m.getNameAsString().equals("put")
+                        && m.getArguments().size() == 2
+                        && m.getScope()
+                            .map(
+                                x ->
+                                    x.toString().equals(scope)
+                                        || x.toString().equals("this." + scope))
+                            .orElse(false)
+                        && m.getArgument(0).isClassExpr()
+                        && isFacadeType(m.getArgument(0).asClassExpr().getType()))
+            .toList();
+    Contract.require(matches.size() < 2, "CONFLICT: duplicate disabled Facade registration");
     if (!matches.isEmpty()) {
       var call = matches.get(0);
-      Contract.require(call.getArgument(1).isObjectCreationExpr(), "CONFLICT: disabled Facade implementation is customized");
+      Contract.require(
+          call.getArgument(1).isObjectCreationExpr(),
+          "CONFLICT: disabled Facade implementation is customized");
       var creation = call.getArgument(1).asObjectCreationExpr();
-      Contract.require(isFacadeType(creation.getType()) && creation.getArguments().isEmpty()
-          && creation.getAnonymousClassBody().map(List::isEmpty).orElse(false),
+      Contract.require(
+          isFacadeType(creation.getType())
+              && creation.getArguments().isEmpty()
+              && creation.getAnonymousClassBody().map(List::isEmpty).orElse(false),
           "CONFLICT: disabled Facade implementation is customized");
       shortenGeneratedTypes(owner, call);
       return;
     }
-    var constructors = owner.getConstructors().stream().filter(c -> c.getParameters().isEmpty()).toList();
-    Contract.require(constructors.size()==1, "INCOMPLETE: explicit no-argument disabled Facade constructor required");
-    var statement = StaticJavaParser.parseStatement(scope + ".put(" + contract.target().facade()
-        + ".class, new " + contract.target().facade() + "() {});");
+    var constructors =
+        owner.getConstructors().stream().filter(c -> c.getParameters().isEmpty()).toList();
+    Contract.require(
+        constructors.size() == 1,
+        "INCOMPLETE: explicit no-argument disabled Facade constructor required");
+    var statement =
+        StaticJavaParser.parseStatement(
+            scope
+                + ".put("
+                + contract.target().facade()
+                + ".class, new "
+                + contract.target().facade()
+                + "() {});");
     shortenGeneratedTypes(owner, statement);
     constructors.get(0).getBody().addStatement(statement);
   }
@@ -589,23 +653,38 @@ public final class Generator {
                       || resolved.getAllAncestors().stream()
                           .anyMatch(a -> a.getQualifiedName().equals(contract.target().facade()));
                 });
-    if (!implementsFacade) owner.getImplementedTypes().add(shortenGeneratedTypes(owner,
-        StaticJavaParser.parseClassOrInterfaceType(contract.target().facade())));
+    if (!implementsFacade)
+      owner
+          .getImplementedTypes()
+          .add(
+              shortenGeneratedTypes(
+                  owner, StaticJavaParser.parseClassOrInterfaceType(contract.target().facade())));
     if (owner.getAnnotations().stream()
         .noneMatch(
             a -> a.getName().getIdentifier().equals(Contract.simple(type("facadeAnnotation")))))
-      owner.addAnnotation(shortenGeneratedTypes(owner,
-          StaticJavaParser.parseAnnotation("@" + type("facadeAnnotation"))));
+      owner.addAnnotation(
+          shortenGeneratedTypes(
+              owner, StaticJavaParser.parseAnnotation("@" + type("facadeAnnotation"))));
     StringBuilder body = new StringBuilder();
     int n = 0;
     for (var step : contract.steps()) {
       String variable = field(owner, step.handler(), step.id() + "ApiHandler");
       body.append("// ").append(++n).append(". 执行 ").append(step.id()).append(" 业务处理\n");
       if (contract.assembly().mode().equals("direct")) {
-        body.append("return ").append(variable).append(".run(").append(binding(step)).append(");\n");
+        body.append("return ")
+            .append(variable)
+            .append(".run(")
+            .append(binding(step))
+            .append(");\n");
       } else {
-        body.append(step.outputType()).append(' ').append(stepVariable(step.id()))
-            .append('=').append(variable).append(".run(").append(binding(step)).append(");\n\n");
+        body.append(step.outputType())
+            .append(' ')
+            .append(stepVariable(step.id()))
+            .append('=')
+            .append(variable)
+            .append(".run(")
+            .append(binding(step))
+            .append(");\n\n");
       }
     }
     if (!contract.assembly().mode().equals("direct")) {
@@ -660,8 +739,31 @@ public final class Generator {
       }
     diagnosticPattern.append(", detailErrMsg: %s");
     diagnosticArgs.append(errorVar).append(".getErrMsg()");
+    String formattedError =
+        "String.format(java.util.Locale.ROOT,"
+            + quote(diagnosticPattern.toString())
+            + ","
+            + diagnosticArgs
+            + ")";
+    String failure =
+        contract.returnsFailureMessage()
+            ? "return " + formattedError + ";"
+            : type("externalException")
+                + " "
+                + wrappedVar
+                + "=new "
+                + type("externalException")
+                + "("
+                + formattedError
+                + ");"
+                + wrappedVar
+                + ".initCause("
+                + errorVar
+                + ");throw "
+                + wrappedVar
+                + ";";
     String body =
-        "// 1. 转换业务请求\n"
+        "try {\n// 1. 转换业务请求\n"
             + request
             + " "
             + reqVar
@@ -681,7 +783,6 @@ public final class Generator {
             + ".getFacadeImpl("
             + contract.target().facade()
             + ".class);\n"
-            + "try {"
             + response
             + " "
             + resultVar
@@ -700,22 +801,8 @@ public final class Generator {
             + " "
             + errorVar
             + "){"
-            + type("externalException")
-            + " "
-            + wrappedVar
-            + " = new "
-            + type("externalException")
-            + "(String.format(java.util.Locale.ROOT,"
-            + quote(diagnosticPattern.toString())
-            + ","
-            + diagnosticArgs
-            + "));"
-            + wrappedVar
-            + ".initCause("
-            + errorVar
-            + ");throw "
-            + wrappedVar
-            + ";}";
+            + failure
+            + "}";
     String declarationParameters = parameters();
     String annotation = "";
     if (!owner.getImplementedTypes().isEmpty() || !owner.getExtendedTypes().isEmpty()) {
@@ -756,30 +843,40 @@ public final class Generator {
             + contract.operation()
             + "("
             + declarationParameters
-            + ") throws "
-            + type("externalException")
+            + ")"
+            + (contract.returnsFailureMessage() ? "" : " throws " + type("externalException"))
             + " {"
             + body
             + "}");
     StringBuilder mapping =
-        new StringBuilder(
-            "if(result==null){throw "
-                + error("result is empty")
-                + ";}"
-                + contract.externalResponse()
-                + " response=new "
-                + contract.externalResponse()
-                + "();");
-    contract
-        .responseBindings()
-        .forEach(
-            (dest, src) ->
-                mapping
-                    .append("response.set")
-                    .append(Contract.cap(dest))
-                    .append("(result.")
-                    .append(modelGetter(contract.models().response(), src))
-                    .append(");"));
+        new StringBuilder("if(result==null){throw " + error("result is empty") + ";}");
+    if (contract.stringResponse()) {
+      mapping
+          .append("String response=result.")
+          .append(
+              modelGetter(contract.models().response(), contract.responseBindings().get("message")))
+          .append(";if(response==null){throw ")
+          .append(error("response message is missing"))
+          .append(";}if(response.trim().isEmpty()){throw ")
+          .append(error("response message is missing"))
+          .append(";}");
+    } else {
+      mapping
+          .append(contract.externalResponse())
+          .append(" response=new ")
+          .append(contract.externalResponse())
+          .append("();");
+      contract
+          .responseBindings()
+          .forEach(
+              (dest, src) ->
+                  mapping
+                      .append("response.set")
+                      .append(Contract.cap(dest))
+                      .append("(result.")
+                      .append(modelGetter(contract.models().response(), src))
+                      .append(");"));
+    }
     var responseOwner = responseConverter == null ? owner : target(responseConverter, true);
     if (responseConverter != null) {
       if (responseOwner.getFieldByName("INSTANCE").isEmpty())

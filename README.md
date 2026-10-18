@@ -1,10 +1,6 @@
 # Atomic API Pattern
 
-中文开发 Skill + API contract + Java AST 骨架生成器/检查器。
-
-面向 Delegate → 业务 Facade → Handler → 原子能力的分层架构，字段转换由 Converter 承担，确需业务汇总时使用 Builder。**当前版本 0.2.0**：通用设计 skill 与 IPRAN 故障业务 skill 分开，CLI 支持独立响应转换器和本地 Maven 父版本检查。默认预览、显式应用；生成的是业务骨架，不是已实现业务。
-
-本次重构将专家反馈整理为职责、兼容性与验证规则：公共业务 DTO 不强制进入 SDK；单契约节点可作为响应内部类；内部 get 命名不改变已发布 query 工具或外部路径；JSON 注解按真实 wire 契约判断；构建失败先查本次变更、父版本、Reactor 与 classpath。可自动证明的规则进入 CLI，业务语义保留明确的人工审查边界。
+**0.3.0：让代码代理按固定步骤开发规范 Java API。** Skill 负责简短操作指令；CLI 固定包、目录和结构，检查源码并给出逐项 FIX。新开发使用 `new → generate → 实现业务 → verify → 项目编译测试`。
 
 ## 快速试用
 
@@ -26,96 +22,86 @@ sh install.sh
 
 安装到用户目录，无需管理员权限；安装后打开新终端。安装脚本也接受已构建产物（PowerShell `-Jar <path>`，shell `--jar <path>`），此时无需 Maven。日常使用不需要输入 Java 命令。
 
-进入业务项目根目录：
+## 项目维护者只配置一次
 
-```bash
-atomic-api -h
-atomic-api init
-atomic-api check --format json
+在业务项目根目录运行 `atomic-api init --agent codex`（也支持 claude/cursor，省略 agent 则只写 `.atomic-api/`）。核对 `.atomic-api/profile.yaml` 中实际框架类型、layout 和 **roles**；[配置示例](docs/framework-profile.md) 说明各层的固定包与模块。
+
+配置由熟悉项目的人确定，后续新增操作不需要反复设计目录。不能自动识别时工具会明确提示；com.example 只是虚构示例。init 保留已有文件与定制，不修改 AGENTS.md。
+
+两份完整 skill 随 CLI 打包：通用 `atomic-api-design` 和故障业务 `ipran-fault-api-dev`。前者给固定操作顺序，后者补 DTO、版本、JSON 和错误兼容性规则。
+
+## 代码代理的日常流程
+
+```text
+atomic-api new --operation queryCircuit --business circuit
 ```
 
-`init` 默认只创建 `.atomic-api/`：配置为 `.atomic-api/profile.yaml`，示例为 `.atomic-api/contracts/example.yaml`，Skill 为 `.atomic-api/skills/` 下的 `atomic-api-design` 和 `ipran-fault-api-dev`。无法自动识别框架时生成明确标注的待配置草稿，使用前核对。再次 init 保留已有文件。
+工具从 roles 确定所有类名、包和源码根，生成 `.atomic-api/contracts/queryCircuit.yaml`。模型只填写用途、请求字段、响应字段、已有外部响应类型、字段映射，不从零设计调用链。空业务草稿故意不能生成，避免工具猜测需求。
 
-初始化还预留 `.atomic-api/work/`，临时计划、日志、调试脚本、参数文件和编译产物统一保存到 `.atomic-api/work/<operation>/`，不散落在 `.atomic-api/` 根目录。工作目录默认忽略版本管理；`generate`、`check` 默认输出到终端，不自动生成日志文件。已有文件不会被 init 移动或删除。
-
-需要代码代理自动发现 Skill 时，可显式选择：
-
-```bash
-atomic-api init --agent codex
-# 或 --agent claude / --agent cursor
+```text
+atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
+atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --apply
 ```
 
-此选项会额外复制完整 Skill 到对应项目目录（Codex `.agents/skills/`、Claude `.claude/skills/`、Cursor `.cursor/skills/`）。默认 init 不创建这些目录，不修改已有 AGENTS.md 或 CLAUDE.md。具体接入见 [CLI 使用约定](docs/cli.md)。
+审阅计划后应用，补充报告中的 Handler/必要 Builder 业务。已有实现冲突会阻塞，不覆盖业务体；重复相同生成应 NOOP。
 
-## 在独立目录试用
+```text
+atomic-api verify --contract .atomic-api/contracts/queryCircuit.yaml
+```
 
-```bash
+按每条诊断的 FIX 修复源码并重跑。**业务交付必须同时具备 verify 退出 0/STRUCTURE_READY 和项目编译、定向测试证据。** 可以提前编译验证接线或生成类型；类型缺失时先构建依赖补齐 classpath，再重查。 未实现占位、明显空实现、解析不完整与确定违规都不能通过。verify 不会自动执行项目命令，也不证明业务结果、全部 wire 兼容性或云端构建正确。
+
+项目 CI 可以执行同一条 verify 命令，以非零退出码阻止违规代码合入；不应让代理用旧版 check 替代。固定仓库配置和 CI 由维护者管理，不能通过修改规则、降低 contract 版本或删除测试来消除失败。
+
+String 返回也支持：externalResponse 为 java.lang.String，responseBindings 只绑定 message；errorMode 必须按真实契约选择 exception 或 message。前者保留异常 cause，后者返回带底层原因的英文失败消息。示例见 [String 响应契约](examples/strict-message.yaml)。
+
+## 哪些由代码约束
+
+| 自动检查 | 失败时的处理 |
+|---|---|
+| 各层包/sourceRoot 与实际文件位置 | 按 roles 恢复，不凭模型习惯放 SDK 或新建目录 |
+| 两个 Converter 的实际请求绑定、响应返回 | 拒绝只调用一个无用 Converter 充数或在 Delegate new/set REST 响应 |
+| Converter 映射职责 | 拒绝可识别的服务状态、外部服务调用、可执行 MapStruct 表达式或反向模型转换 |
+| Facade 编排 | 拒绝控制流、对象构造及超出 Handler/Builder 的业务调用 |
+| Handler 常见生命周期错位 | 原子请求构造/赋值移回 pre，能力获取移回 invoke |
+| 公共 DTO 反向依赖 | 移出实现层/service 依赖 |
+| 未实现占位、明显空调用阶段/null 返回 | 补真实业务，不只删占位文字 |
+| 异常适配与 Maven 父版本 | 保留 getErrMsg/cause，对齐已证实的本地父版本错配 |
+
+这些是受限 AST 规则，并非完整语义证明。解析失败输出 INCOMPLETE；复杂映射、原子版本族、JSON wire 语义和测试充分性仍有人工边界。工具不把这些默认为通过，详细能力见 [CLI 说明](docs/cli.md)。
+
+## 在空目录练习
+
+```text
 atomic-api demo --repo ../atomic-api-demo
+atomic-api generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/strict-handler.yaml --apply
+atomic-api verify --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/strict-handler.yaml
 ```
 
-demo 仅接受空目录，创建虚构框架、外部响应模型与三份 contract，不连接真实服务。
+最后一步预期失败并指向业务占位。实现真实逻辑后重试，而不是把这个失败当作工具问题。demo 包含虚构框架及已配置 roles，不连接真实系统。只交骨架或缺少真实能力资料时，保留占位并报告 SCAFFOLD/未验收，可先编译检查接线。旧单/多 Handler contract 留作兼容测试，不与同操作新示例同时生成。
 
-预览并生成单 Handler API：
+## 升级和文件
 
-```bash
-atomic-api generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/single-handler.yaml
-atomic-api generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/single-handler.yaml --apply
-```
+所有命令默认当前目录，可用 `--repo <path>` 指定。配置、contract、schema、skill 归入 `.atomic-api/`；日志、参数文件和临时产物放 `.atomic-api/work/<operation>/`。
 
-生成多 Handler API，再检查两条链路并编译示例：
+已有 v1 contract 仍可 generate/check，防止破坏存量项目；**verify 拒绝 v1，新增必须使用 new 创建 v2。** init 不覆盖本地旧文件，升级时在临时目录初始化新版本并对照合并定制 profile/skill；主项目升级后要配置 roles。
 
-```bash
-atomic-api generate --repo ../atomic-api-demo --contract ../atomic-api-demo/contracts/multi-handler.yaml --apply
-atomic-api check --repo ../atomic-api-demo --format json
-mvn -f ../atomic-api-demo/pom.xml test
-```
+## 文档
 
-重复 generate 应显示 NOOP。`check` 不要求 contract，也不依赖 API 清单；传入 `--contract` 才增加设计对照。
+- [固定开发 Skill](skills/atomic-api-design/SKILL.md)、[IPRAN 故障 Skill](skills/ipran-fault-api-dev/SKILL.md)
+- [CLI 与诊断](docs/cli.md)、[框架与角色配置](docs/framework-profile.md)、[Contract](docs/contracts.md)
+- [新规范完整示例](examples/strict-handler.yaml)、[Schema](schemas/api-contract.schema.json)、[设计](docs/design.md)
 
-检查会显示 `readiness=SCAFFOLD`，因为 Handler 底层调用和多结果 Builder 明确抛出 `ATOMIC_API_UNIMPLEMENTED` 异常，需要补充业务。退出 0 只表示当前结构检查没有 ERROR/INCOMPLETE，不能证明业务完成。
+## 验证插件
 
-CI 的 `Build Java CLI` 工作流会上传 `atomic-api-jar` 和包含安装脚本的 `atomic-api-cli` 构建产物。以工作流实际成功状态为准。
-
-## 独立响应转换器
-
-新 contract 可指定 `target.responseConverter`：请求 Converter 只转请求，响应 Converter 校验并复制业务响应字段，Delegate 在原有 try 范围调用它。参考 [故障业务对象响应示例](examples/fault-response.yaml)，在另一个空 demo 目录单独试用；它与旧单 Handler 示例是同一操作的两种设计，不能同时应用到同一实现类。
-
-省略新字段的旧 contract 继续使用 Delegate 私有映射方法。这个兼容路径不改变新业务推荐规范。生成器不自动实现 String 响应、嵌套节点 DTO、实际原子调用或 MapStruct 注解处理；这些按领域 skill 和真实项目实现。
-
-## 用于实际项目
-
-1. 复制一份示例 contract，填写真实操作、请求/响应、已有外部模型和 Handler 步骤。
-2. 使用 init 创建的 `.atomic-api/profile.yaml` 配置框架类型和模块布局。profile 是项目级配置，不登记 API；仍兼容旧的根目录 `atomic-api-profile.yaml`。
-3. 先 dry-run 审阅 diff。目标方法已有业务实现时报告 CONFLICT，不覆盖。
-4. 需要依赖类型时通过多个 `--classpath <jar>` 提供；非标准源码根通过 `--source-root <目录>` 指定。
-5. 应用后补充底层业务、字段汇总及测试，再按实际项目的构建流程验证。
-
-已有 Delegate 实现外部接口时，生成器解析其准确方法签名，保留 context 等额外参数；请求字段必须能按名字、类型绑定。重载或复杂签名不明确时停止，不猜测。
-
-**0.2.0 边界**：profile 支持 `facadeDefault: throw` 或显式 `return-null`；支持 Java 8/11/17/21 目标及完整限定的泛型集合字段；不改生成模型、不覆盖既有方法、不支持任意绑定表达式、复杂控制流或自动业务实现。Lombok 生成的方法若源码/依赖无法解析，需要补充编译后 classpath，或手工适配。详细规则及未覆盖项见 [使用约定](docs/cli.md)。
-
-## 文档与 Skill
-
-- [总体设计](docs/design.md)
-- [CLI 与已实现范围](docs/cli.md)
-- [Contract 规范](docs/contracts.md)
-- [项目级 profile](docs/framework-profile.md)
-- [通用设计 Skill](skills/atomic-api-design/SKILL.md)
-- [IPRAN 故障业务 Skill](skills/ipran-fault-api-dev/SKILL.md)
-- [Schema](schemas/api-contract.schema.json)
-- [单 Handler](examples/single-handler.yaml)、[多 Handler](examples/multi-handler.yaml)、[独立响应 Converter](examples/fault-response.yaml)
-
-两份 Skill 及其 references 均随 CLI 打包，`atomic-api init` 可直接安装到项目。升级时 init 仍保留本地已有文件；在临时目录初始化新版本，再逐文件对照合并已有 skill/profile，避免覆盖项目定制。Skill 使用 PATH 中的 atomic-api 命令，无需保留工具源码仓库的绝对路径。
-
-## 测试
-
-```bash
+```text
 mvn -f cli/pom.xml verify
 python -m pip install -r requirements-dev.txt
 python scripts/validate_design.py
 python -m unittest discover -s tests -v
+python scripts/package_cli.py
 ```
 
-Java 测试包含 AST 发现、异常传播、独立响应 Converter、Maven 父版本、contract 校验、安全写入、生成源码的 Java 8 编译及 CLI 示例。Python 脚本只验证设计文件与示例，不代替 Java AST。
+CLI 运行需要 Java 17+，安装后日常只使用 atomic-api 命令。生成源码遵守目标 profile 的 Java 8/11/17/21；业务 JDK 由业务项目决定。
 
-本仓库仅包含虚构 `com.example` 示例和通用工具，不包含业务仓库源码或环境凭据。
+本仓库仅提供通用工具与虚构 com.example 示例，不包含私有业务源码或凭据。GitHub Actions 构建产物包含 JAR 与便携安装包；Windows 验证以实际 CI 结果为准。

@@ -1,0 +1,40 @@
+version: 2
+business: resource
+operation: queryResourceMessage
+description: 根据地址查询响应消息
+target:
+  facade: com.example.common.fault.facadeinterface.resource.ResourceFacade
+  implementation: com.example.app.resource.ResourceFacadeImpl
+  delegate: com.example.service.resource.ResourceDelegateImpl
+  converter: com.example.service.converter.resource.ResourceRequestConverter
+  responseConverter: com.example.service.converter.resource.ResourceResponseConverter
+models:
+  request:
+    class: com.example.common.fault.dto.resource.QueryResourceMessageReqDto
+    sourceRoot: ipran-app-api-common/src/main/java
+    fields:
+      - name: address
+        type: java.lang.String
+        description: 查询地址
+        required: true
+        diagnostic: true
+  response:
+    class: com.example.common.fault.dto.resource.QueryResourceMessageRspDto
+    sourceRoot: ipran-app-api-common/src/main/java
+    fields:
+      - name: message
+        type: java.lang.String
+        description: 响应消息
+externalResponse: java.lang.String
+errorMode: message
+steps:
+  - id: resource
+    handler: com.example.app.resource.QueryResourceMessageApiHandler
+    sourceRoot: app/src/main/java
+    input: request
+    inputType: com.example.common.fault.dto.resource.QueryResourceMessageReqDto
+    outputType: com.example.common.fault.dto.resource.QueryResourceMessageRspDto
+assembly:
+  mode: direct
+responseBindings:
+  message: message

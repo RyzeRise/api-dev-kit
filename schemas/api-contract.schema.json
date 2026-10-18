@@ -1,11 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Atomic API Contract v1",
+  "title": "Atomic API Contract v1/v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "operation", "description", "target", "models", "externalResponse", "steps", "assembly", "responseBindings"],
   "properties": {
-    "version": {"const": 1},
+    "version": {"enum": [1, 2]},
+    "business": {"$ref": "#/$defs/identifier"},
+    "errorMode": {"enum": [null, "exception", "message"]},
     "operation": {"$ref": "#/$defs/identifier"},
     "description": {"type": "string", "minLength": 1},
     "target": {
@@ -66,6 +68,12 @@
       "additionalProperties": {"$ref": "#/$defs/identifier"}
     }
   },
+  "allOf": [{
+    "if": {"properties": {"version": {"const": 2}}},
+    "then": {"required": ["business"], "properties": {
+      "target": {"required": ["responseConverter"]}
+    }}
+  }],
   "$defs": {
     "identifier": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
     "fqn": {"type": "string", "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*\\.)+[A-Za-z_][A-Za-z0-9_]*$"},

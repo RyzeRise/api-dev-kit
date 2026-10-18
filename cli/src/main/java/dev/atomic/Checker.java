@@ -8,7 +8,12 @@ import java.util.*;
 
 /** AST/type based checks. Unproved relations are INCOMPLETE, never PASS. */
 public final class Checker {
-  public record Finding(String severity, String rule, String file, int line, String message) {}
+  public record Finding(
+      String severity, String rule, String file, int line, String message, String fix) {
+    public Finding(String severity, String rule, String file, int line, String message) {
+      this(severity, rule, file, line, message, RuleGuidance.fix(rule));
+    }
+  }
 
   public record Report(
       int discoveredMethods,
@@ -27,6 +32,7 @@ public final class Checker {
   }
 
   private SourceIndex index;
+  private Contract activeContract;
   private final Profile profile;
 
   public Checker() {
@@ -97,6 +103,8 @@ public final class Checker {
 
   public Report check(SourceIndex input, Contract contract) {
     index = input;
+    activeContract = contract;
+    boolean strict = contract != null && contract.version() == 2;
     findings.clear();
     findings.addAll(MavenParents.check(index.root()));
     facades.clear();
@@ -106,6 +114,7 @@ public final class Checker {
       findings.add(new Finding("INCOMPLETE", "PARSE", index.root().toString(), 0, issue));
     for (var cu : index.units())
       for (var call : cu.findAll(MethodCallExpr.class)) {
+        if (strict && !inScope(call, contract)) continue;
         if (call.getNameAsString().equals("getFacadeImpl")) {
           if (call.getArguments().size() != 1 || !call.getArgument(0).isClassExpr()) {
             incomplete(call, "Dynamic getFacadeImpl target");
@@ -125,7 +134,8 @@ public final class Checker {
         }
       }
     for (var type : index.types().values())
-      if (facadeAnnotation(type)) {
+      if ((!strict || Conventions.scope(contract).contains(type.getFullyQualifiedName().orElse("")))
+          && facadeAnnotation(type)) {
         for (var parent : type.getImplementedTypes())
           try {
             facades.add(parent.resolve().asReferenceType().getQualifiedName());
@@ -133,6 +143,7 @@ public final class Checker {
             incomplete(parent, "Cannot resolve annotated Facade");
           }
       }
+    if (strict) facades.retainAll(Set.of(contract.target().facade()));
     for (String name : facades) {
       var facade = index.type(name);
       if (facade == null || !facade.isInterface()) {
@@ -147,10 +158,15 @@ public final class Checker {
       }
       List<MethodDeclaration> methods = apiMethods(facade);
       for (var method : methods) {
+        if (strict && !method.getNameAsString().equals(contract.operation())) continue;
         discovered++;
         int before = findings.size();
         signature(method);
         for (var impl : index.types().values()) {
+          if (strict
+              && !impl.getFullyQualifiedName()
+                  .orElse("")
+                  .equals(contract.target().implementation())) continue;
           if (impl.isInterface()
               || impl.getImplementedTypes().isEmpty() && impl.getExtendedTypes().isEmpty())
             continue;
@@ -193,6 +209,9 @@ public final class Checker {
     }
     for (var cu : index.units()) {
       for (var call : cu.findAll(MethodCallExpr.class)) {
+        if (strict
+            && (!inScope(call, contract) || !call.getNameAsString().equals(contract.operation())))
+          continue;
         if (call.getScope().isEmpty() || call.getNameAsString().equals("getFacadeImpl")) continue;
         try {
           var receiver = call.getScope().get().calculateResolvedType();
@@ -206,17 +225,26 @@ public final class Checker {
         }
       }
       for (var guard : cu.findAll(IfStmt.class))
-        if (guard.getCondition().findAll(BinaryExpr.class).stream()
+        if ((!strict || inScope(guard, contract))
+            && guard.getCondition().findAll(BinaryExpr.class).stream()
                 .anyMatch(b -> b.getOperator() == BinaryExpr.Operator.OR)
             && !guard.getThenStmt().findAll(ThrowStmt.class).isEmpty())
           finding(
               "WARN", "API-008", guard, "OR leads to exception; review independent failure causes");
     }
     if (contract != null) compare(contract);
+    if (strict) findings.addAll(new StrictChecks(index, contract, profile).check());
     boolean scaffold =
         index.units().stream()
             .flatMap(c -> c.findAll(StringLiteralExpr.class).stream())
+            .filter(s -> !strict || inScope(s, contract))
             .anyMatch(s -> s.asString().startsWith("ATOMIC_API_UNIMPLEMENTED:"));
+    if (strict)
+      for (var cu : index.units())
+        for (var literal : cu.findAll(StringLiteralExpr.class))
+          if (inScope(literal, contract)
+              && literal.asString().startsWith("ATOMIC_API_UNIMPLEMENTED:"))
+            finding("ERROR", "STRICT-007", literal, "Business implementation placeholder remains");
     return new Report(
         discovered,
         checked,
@@ -227,6 +255,19 @@ public final class Checker {
             "API-010 comment meaning",
             "Business behavior and external compatibility"),
         scaffold ? "SCAFFOLD" : "UNKNOWN");
+  }
+
+  private static boolean inScope(Node node, Contract c) {
+    var owner = node.findAncestor(ClassOrInterfaceDeclaration.class);
+    if (owner.isEmpty()) return false;
+    String name = owner.get().getFullyQualifiedName().orElse("");
+    if (!Conventions.scope(c).contains(name)) return false;
+    if (Set.of(c.target().facade(), c.target().implementation(), c.target().delegate())
+        .contains(name))
+      return node.findAncestor(MethodDeclaration.class)
+          .map(m -> m.getNameAsString().equals(c.operation()))
+          .orElse(true);
+    return true;
   }
 
   private boolean isKnownFacadeReceiver(MethodCallExpr call) {
@@ -363,12 +404,34 @@ public final class Checker {
                       .filter(Expression::isObjectCreationExpr)
                       .anyMatch(e -> wraps(e.asObjectCreationExpr(), variable));
                 });
-    if (!wraps && !caught.getBody().findAll(ReturnStmt.class).isEmpty())
+    boolean messageMode = activeContract != null && activeContract.returnsFailureMessage();
+    boolean returnsDetail =
+        caught.getBody().getStatements().stream()
+            .filter(Statement::isReturnStmt)
+            .flatMap(st -> st.asReturnStmt().getExpression().stream())
+            .anyMatch(
+                e ->
+                    e.findAll(MethodCallExpr.class).stream()
+                        .anyMatch(
+                            m ->
+                                m.getNameAsString().equals("getErrMsg")
+                                    && m.getScope()
+                                        .map(Object::toString)
+                                        .filter(variable::equals)
+                                        .isPresent()));
+    if (messageMode && (!returnsDetail || !caught.getBody().findAll(ThrowStmt.class).isEmpty()))
+      finding(
+          "ERROR",
+          "API-007",
+          caught,
+          "Contract requires a failure message preserving caught.getErrMsg(), not a thrown wrapper"
+              + " or discarded detail");
+    else if (!messageMode && !wraps && !caught.getBody().findAll(ReturnStmt.class).isEmpty())
       incomplete(
           caught,
           "Failure return contract requires manual review; do not replace it with an exception just"
               + " to satisfy the checker");
-    else if (!wraps)
+    else if (!messageMode && !wraps)
       finding(
           "ERROR",
           "API-007",
@@ -448,7 +511,10 @@ public final class Checker {
   private void responseBoundary(MethodCallExpr facadeCall, TryStmt enclosing) {
     var owner = facadeCall.findAncestor(MethodDeclaration.class);
     if (owner.isPresent()
-        && owner.get().getType().resolve().describe().equals("java.lang.String")) {
+        && owner.get().getType().resolve().describe().equals("java.lang.String")
+        && !(activeContract != null
+            && activeContract.version() == 2
+            && activeContract.stringResponse())) {
       incomplete(
           facadeCall, "String response adaptation requires manual review of the existing contract");
       return;

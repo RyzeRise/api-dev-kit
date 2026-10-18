@@ -1,6 +1,31 @@
-# Contract 与源码的边界
+# 新增操作的固定契约
 
-Contract 是单个操作的设计输入，不是全局 API 目录。真实包名、方法签名和模块位置从源码确认；`sourceRoot` 与 package 独立配置。只写声明式绑定，不写 Java 表达式。
+默认执行 `atomic-api new --operation queryCircuit --business circuit`。工具从 profile.roles 决定所有类名、包和 sourceRoot，输出 version 2 草稿。只填写五类业务事实：description、请求字段、响应字段、真实 externalResponse、responseBindings。草稿的空字段/null 响应故意不能生成，避免工具猜业务。
+
+字段示例：
+
+```yaml
+fields:
+  - name: circuitId
+    type: java.lang.Long
+    description: 电路标识
+    required: true
+    diagnostic: true
+```
+
+responseBindings 如 `circuitName: name`，表示 REST 的 circuitName 来自业务响应 name。类型和访问方法由 AST 核对，不写 Java 表达式，不把凭据设为 diagnostic。
+
+version 2 必须有 business、ReqDto/RspDto、两个同目录 Converter，并符合维护者的 roles。generate 写入前验证这些约束；verify 还检查真实文件位置和调用关系。不能降低版本或改配置让错误实现通过。
+
+默认一个 Handler 直接返回。确需多来源汇总时，由维护者确认 steps/assembly；builder 位于 implementation 角色包和模块，接收完整请求及步骤结果。不得因字段复制增加 Builder。
+
+## String 响应
+
+externalResponse 填 java.lang.String，responseBindings 只填 `message: <业务响应中的 String 字段>`。必须按真实契约显式填写 errorMode：exception 表示抛包装异常并保留 getErrMsg/cause；message 表示返回带 getErrMsg 的英文失败消息。缺失/空白成功消息会在 ResponseConverter 拒绝，然后经过同一错误适配范围。对象响应的 errorMode 可保留 null，不用猜。
+
+## 兼容与能力边界
+
+旧版兼容说明：Contract 是单个操作的设计输入，不是全局 API 目录。真实包名、方法签名和模块位置从源码确认；`sourceRoot` 与 package 独立配置。只写声明式绑定，不写 Java 表达式。
 
 | 字段 | 含义 |
 |---|---|
@@ -9,7 +34,7 @@ Contract 是单个操作的设计输入，不是全局 API 目录。真实包名
 | `target.converter` | 请求转换器 FQN |
 | `target.responseConverter` | 可选的独立响应转换器 FQN；新实现推荐指定 |
 | `models.request` / `response` | 业务请求/响应模型、sourceRoot 和字段，不预设 SDK 归属 |
-| `externalResponse` | 已有 REST 响应类型；当前生成器支持可构造且有 setter 的对象 |
+| `externalResponse` | 已有 REST 响应类型；支持有 setter 的对象，或显式指定错误形式的 String |
 | `steps` | Handler 次序与输入绑定 `request`、`request.field`、`steps.id`、`steps.id.field` |
 | `assembly` | 单步 `direct` 或有业务汇总需要的 `builder` |
 | `responseBindings` | 外部响应字段到业务响应字段的映射，类型通过 AST 核对 |
@@ -22,6 +47,6 @@ Contract 是单个操作的设计输入，不是全局 API 目录。真实包名
 
 生成器创建 Fail-closed 骨架，原子能力查找、原子请求组装和真实业务判断需要实现。生成的 Converter 默认方法可以编译，不注入 MapStruct 依赖。项目采用 MapStruct 时人工按现有风格迁移并验证生成实现。
 
-String 响应、嵌套节点模型、复杂集合/字段回填、SimpleApiHandler、特有 JSON 注解及原子版本族不由当前 schema 自动建模。按真实框架与领域 skill 手工实现，不伪造响应对象、改外部契约或在 YAML 填表达式绕过限制。`responseBindings` 不表达请求字段回填；有该需求时扩展人工转换实现并单测。
+嵌套节点模型、复杂集合/字段回填、SimpleApiHandler、特有 JSON 注解及原子版本族不由当前 schema 自动建模。按真实框架与领域 skill 手工实现，不伪造响应对象、改外部契约或在 YAML 填表达式绕过限制。`responseBindings` 不表达请求字段回填；有该需求时扩展人工转换实现并单测。
 
 已有实现体与生成计划不同会拒绝覆盖。更新设计后先审阅 dry-run，不用删除业务文件的方式强行应用。重复执行相同生成应 NOOP。

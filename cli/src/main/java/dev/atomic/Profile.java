@@ -9,13 +9,29 @@ public record Profile(
     Map<String, String> types,
     String facadeDefault,
     List<Layout> layout,
-    DisabledFacade disabledFacade) {
+    DisabledFacade disabledFacade,
+    Map<String, Layout> roles) {
   public record DisabledFacade(String configuration, String mapField) {}
 
-  public Profile(int version, int targetJava, Map<String,String> types,
-      String facadeDefault, List<Layout> layout) {
-    this(version, targetJava, types, facadeDefault, layout, null);
+  public Profile(
+      int version,
+      int targetJava,
+      Map<String, String> types,
+      String facadeDefault,
+      List<Layout> layout) {
+    this(version, targetJava, types, facadeDefault, layout, null, null);
   }
+
+  public Profile(
+      int version,
+      int targetJava,
+      Map<String, String> types,
+      String facadeDefault,
+      List<Layout> layout,
+      DisabledFacade disabledFacade) {
+    this(version, targetJava, types, facadeDefault, layout, disabledFacade, null);
+  }
+
   public record Layout(String packagePrefix, String sourceRoot, String directoryPrefix) {}
 
   static final List<String> KEYS =
@@ -45,11 +61,22 @@ public record Profile(
     Contract.require(
         Set.of("throw", "return-null").contains(facadeDefault == null ? "" : facadeDefault),
         "Unsupported facadeDefault: use throw or return-null");
+    Contract.require(layout != null && !layout.isEmpty(), "Profile layout missing");
+    if (roles != null) {
+      Contract.require(
+          roles.keySet().equals(Conventions.ROLES), "roles must define " + Conventions.ROLES);
+      for (Layout role : roles.values()) {
+        Contract.fqn(role.packagePrefix());
+        Contract.root(role.sourceRoot());
+        Contract.require(
+            role.sourceRoot().equals(rootFor(role.packagePrefix() + ".example.Type")),
+            "Role sourceRoot differs from layout: " + role.packagePrefix());
+      }
+    }
     if (disabledFacade != null) {
       Contract.fqn(disabledFacade.configuration());
       Contract.id(disabledFacade.mapField());
     }
-    Contract.require(layout != null && !layout.isEmpty(), "Profile layout missing");
     for (Layout l : layout) {
       Contract.fqn(l.packagePrefix);
       Contract.root(l.sourceRoot);

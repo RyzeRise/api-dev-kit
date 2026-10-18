@@ -80,8 +80,25 @@ def validate_contract(contract, schema):
         check_type_name(value)
 
     models = contract["models"]
+    if contract["version"] == 2:
+        if not valid_name(contract["business"]):
+            raise ValueError("Invalid business identifier")
+        if not models["request"]["class"].endswith("ReqDto") or not models["response"]["class"].endswith("RspDto"):
+            raise ValueError("Version 2 models require ReqDto/RspDto")
+        if contract["target"]["converter"].rsplit(".", 1)[0] != contract["target"]["responseConverter"].rsplit(".", 1)[0]:
+            raise ValueError("Request/response converters must share a package")
     if models["request"]["class"] == models["response"]["class"]:
         raise ValueError("Request and response types must differ")
+    if contract["externalResponse"] == "java.lang.String":
+        if contract["version"] != 2 or contract.get("errorMode") not in ("exception", "message"):
+            raise ValueError("String response requires v2 and explicit errorMode")
+        if set(contract["responseBindings"]) != {"message"}:
+            raise ValueError("String responseBindings requires only message")
+        source = contract["responseBindings"]["message"]
+        if not any(f["name"] == source and f["type"] == "java.lang.String" for f in models["response"]["fields"]):
+            raise ValueError("String message binding must refer to String field")
+    elif contract.get("errorMode") == "message":
+        raise ValueError("message errorMode requires String response")
     request_fields = {}
     for role, model in models.items():
         check_type_name(model["class"])

@@ -20,7 +20,9 @@ public record Contract(
     String externalResponse,
     List<Step> steps,
     Assembly assembly,
-    Map<String, String> responseBindings) {
+    Map<String, String> responseBindings,
+    String business,
+    String errorMode) {
   static final ObjectMapper JSON = new ObjectMapper();
   static final Set<String> PRIMITIVES =
       Set.of("int", "long", "double", "float", "short", "byte", "boolean", "char");
@@ -53,6 +55,18 @@ public record Contract(
       String outputType) {}
 
   public record Assembly(String mode, String builder, String sourceRoot) {}
+
+  boolean stringResponse() {
+    return "java.lang.String".equals(externalResponse);
+  }
+
+  boolean returnsFailureMessage() {
+    return stringResponse() && "message".equals(errorMode);
+  }
+
+  static String packageName(String fqn) {
+    return fqn.substring(0, fqn.lastIndexOf('.'));
+  }
 
   public static Object yaml(Path path) throws Exception {
     require(Files.size(path) <= 100_000, "YAML exceeds 100 KB");
@@ -91,7 +105,21 @@ public record Contract(
   }
 
   public void validate() {
-    require(version == 1, "version must be 1");
+    require(version == 1 || version == 2, "version must be 1 or 2");
+    if (version == 2) {
+      id(business);
+      require(
+          target != null && target.responseConverter() != null,
+          "STRICT-001: version 2 requires target.responseConverter; use atomic-api new");
+      require(
+          models != null
+              && models.request().className().endsWith("ReqDto")
+              && models.response().className().endsWith("RspDto"),
+          "STRICT-001: version 2 models must end with ReqDto/RspDto");
+      require(
+          packageName(target.converter()).equals(packageName(target.responseConverter())),
+          "STRICT-001: request/response converters must share a package");
+    }
     id(operation);
     require(description != null && !description.isBlank(), "description missing");
     require(
@@ -113,6 +141,24 @@ public record Contract(
     require(
         !models.request.className.equals(models.response.className),
         "Request/response must differ");
+    require(
+        errorMode == null || Set.of("exception", "message").contains(errorMode),
+        "errorMode must be exception or message");
+    if (stringResponse()) {
+      require(
+          version == 2 && errorMode != null,
+          "String response requires v2 with explicit errorMode: exception or message");
+      require(
+          responseBindings.size() == 1 && responseBindings.containsKey("message"),
+          "String responseBindings must contain only message: <business string field>");
+      String source = responseBindings.get("message");
+      require(
+          models.response.fields.stream()
+              .anyMatch(f -> f.name.equals(source) && f.type.equals("java.lang.String")),
+          "String message binding must refer to a java.lang.String response field");
+    } else
+      require(
+          !"message".equals(errorMode), "message errorMode requires a String external response");
     Set<String> generated = new HashSet<>();
     generated.add(models.request.className);
     generated.add(models.response.className);

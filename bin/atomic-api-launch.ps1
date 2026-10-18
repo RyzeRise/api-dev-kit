@@ -5,7 +5,7 @@ $jarPath = $env:ATOMIC_API_JAR
 if (-not $jarPath) {
     $jarPath = Join-Path $toolRoot 'lib/atomic-api/atomic-api.jar'
     if (-not (Test-Path -LiteralPath $jarPath -PathType Leaf)) {
-        $jarPath = Join-Path $toolRoot 'cli/target/atomic-api-0.2.0.jar'
+        $jarPath = Join-Path $toolRoot 'cli/target/atomic-api-0.3.0.jar'
     }
 }
 if (-not (Test-Path -LiteralPath $jarPath -PathType Leaf)) {

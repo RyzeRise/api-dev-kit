@@ -1,6 +1,6 @@
 # 项目级 Framework Profile
 
-profile 解决“这个项目采用哪些框架类型、源码放在哪里”，不登记 API。init 在项目的 `.atomic-api/profile.yaml` 创建配置；generate/check 优先读取它，没有时兼容根目录旧的 atomic-api-profile.yaml，也可通过 --profile 指定。明确指定的文件不存在时失败，不静默改用自动识别。
+profile 解决“这个项目采用哪些框架类型、源码放在哪里”，不登记 API。init 在项目的 `.atomic-api/profile.yaml` 创建配置；new/generate/check/verify 优先读取它，没有时兼容根目录旧的 atomic-api-profile.yaml，也可通过 --profile 指定。明确指定的文件不存在时失败，不静默改用自动识别。
 
 ```yaml
 version: 1
@@ -15,6 +15,8 @@ types:
   componentAnnotation: org.springframework.stereotype.Component
 facadeDefault: throw
 layout:
+  - packagePrefix: com.example.common
+    sourceRoot: ipran-app-api-common/src/main/java
   - packagePrefix: com.example.sdk
     sourceRoot: function-sdk/src/main/java
   - packagePrefix: com.example.app
@@ -46,3 +48,25 @@ disabledFacade:
 ```
 
 `configuration` 是现有配置类的完整类名；`mapField` 是该类的注册 Map 字段。生成器在显式无参构造函数中追加当前 contract 的 `Facade.class -> new Facade() {}` 注册；已有等价注册只简化类型引用，不重复添加。自定义实现或重复注册报冲突，不覆盖。未配置时不查找或修改注册类。生成的 import 按包分组排序（Java 标准库放在最后，static import 单独分组）；包含注释的既有 import 区块保持原样，避免丢失注释。
+
+## 新开发的角色配置（维护者配置一次）
+
+在现有 profile 添加 roles，每个角色明确 packagePrefix 和 sourceRoot。目录映射必须与 layout 一致；不要登记操作清单。示例与 demo 配套：
+
+```yaml
+roles:
+  facade: {packagePrefix: com.example.common.fault.facadeinterface, sourceRoot: ipran-app-api-common/src/main/java}
+  request: {packagePrefix: com.example.common.fault.dto, sourceRoot: ipran-app-api-common/src/main/java}
+  response: {packagePrefix: com.example.common.fault.dto, sourceRoot: ipran-app-api-common/src/main/java}
+  implementation: {packagePrefix: com.example.app, sourceRoot: app/src/main/java}
+  handler: {packagePrefix: com.example.app, sourceRoot: app/src/main/java}
+  delegate: {packagePrefix: com.example.service, sourceRoot: service/src/main/java}
+  requestConverter: {packagePrefix: com.example.service.converter, sourceRoot: service/src/main/java}
+  responseConverter: {packagePrefix: com.example.service.converter, sourceRoot: service/src/main/java}
+```
+
+对应 layout 还需包含 com.example.common → ipran-app-api-common/src/main/java、com.example.app → app/src/main/java、com.example.service → service/src/main/java。
+
+new 在角色 packagePrefix 下加 business 包，按 operation/domain 生成 ReqDto、RspDto、Facade、Delegate、Handler 和两个 Converter。sourceRoot 由角色固定；verify 核对实际文件路径。Builder 使用 implementation 角色。
+
+旧 profile 没有 roles 仍可 generate/check v1；new/verify 不猜测角色，缺少配置就退出 2。初次无法识别配置时 init 仍创建明确标注的示例草稿，必须确认真实项目路径后使用。后续新增不改配置；不要由代理修改角色绕过失败。

@@ -1,6 +1,6 @@
 # 总体设计
 
-当前实现为 0.2.0。CLI 负责可证明的结构、受限生成和安全写入；skill 负责分层决策、兼容性、人工审查与验证流程。实际范围以 [CLI 使用约定](cli.md) 和报告为准。
+当前实现为 0.3.0。新增流程通过 new 与 verify 降低模型自由度，CLI 负责可证明的结构、受限生成和安全写入；skill 负责分层决策、兼容性、人工审查与验证流程。实际范围以 [CLI 使用约定](cli.md) 和报告为准。
 
 ## 组件
 
@@ -20,7 +20,7 @@ service Delegate 通过 RequestConverter 转业务请求、组件管理查找 Fa
 
 公共业务契约放业务公共模块，只有 SDK 专属类型放 SDK。新生成设计指定 responseConverter 后请求与响应分开；旧 contract 省略字段时保留私有映射以保证兼容。当前只自动生成对象响应的 default 映射，不假装提供 MapStruct 或真实原子业务实现。
 
-Facade 单步直接返回，多来源计算或匹配才用 Builder。Handler 三阶段真实职责、节点内部类、支持版本、JSON 以及既有 String 返回由领域 skill 引导人工实现，不靠命名扫描自动推断。
+Facade 单步直接返回，多来源计算或匹配才用 Builder。Handler 三阶段真实职责、节点内部类、支持版本、JSON 由领域 skill 引导人工核对；String 的成功消息映射和 exception/message 错误形式由显式契约生成，不靠命名扫描自动推断。
 
 ## 发现、生成与检查
 
@@ -43,3 +43,9 @@ LexicalPreservingPrinter 保留无关代码，支持 CRLF/BOM 与已有文件权
 通用 skill 提供工作流、分层规则和工具边界；故障业务 skill 提供公共契约归属、转换职责、版本/JSON/错误兼容性、Maven 排查和 MR 边界。详细资料按需读取，避免在主 skill 重复长清单或保留互相冲突的旧建议。
 
 两份 skill 的全部资源通过 manifest 打包并回归验证；init 保留本地定制，不自动覆盖升级。自动测试只用虚构 com.example 类型，不依赖私有父 POM或上传业务源码。插件运行需 JDK 17，业务目标版本由 profile 和业务项目决定。
+
+## 0.3.0 的默认路径
+
+项目维护者一次配置 roles，模型只提供 operation/business 和五类业务事实；new 生成 v2 草稿，不猜字段。generate 在写前校验角色约束，verify 结合 StrictChecks 验证实际架构，输出逐项 fix 和 BLOCKED/STRUCTURE_READY。
+
+v1/check 只用于兼容存量，新验收不允许降级。检查范围按 v2 操作限定；预期的未实现业务会阻塞，旧无关占位不混入本次 readiness。代码规则、破坏性变体测试和最终业务编译测试分别提供证据，不把 AST 通过当成完整行为证明。

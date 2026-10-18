@@ -35,6 +35,36 @@ class DesignTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Target types must differ"):
             self.check(fault)
 
+    def test_strict_contract_requires_both_converters(self):
+        data = validator.load_yaml(ROOT / "examples/strict-handler.yaml")
+        self.check(data)
+        del data["target"]["responseConverter"]
+        with self.assertRaises(ValidationError):
+            self.check(data)
+
+    def test_strict_contract_uses_response_suffix_and_same_converter_package(self):
+        data = validator.load_yaml(ROOT / "examples/strict-handler.yaml")
+        data["target"]["responseConverter"] = "com.example.wrong.ResponseConverter"
+        with self.assertRaisesRegex(ValueError, "share a package"):
+            self.check(data)
+        data = validator.load_yaml(ROOT / "examples/strict-handler.yaml")
+        data["models"]["response"]["class"] = "com.example.common.ResourceResultDto"
+        with self.assertRaisesRegex(ValueError, "ReqDto/RspDto"):
+            self.check(data)
+
+    def test_string_contract_requires_explicit_failure_mode(self):
+        data = validator.load_yaml(ROOT / "examples/strict-message.yaml")
+        self.check(data)
+        data["errorMode"] = None
+        with self.assertRaisesRegex(ValueError, "explicit errorMode"):
+            self.check(data)
+
+    def test_object_cannot_return_failure_message(self):
+        data = validator.load_yaml(ROOT / "examples/strict-handler.yaml")
+        data["errorMode"] = "message"
+        with self.assertRaisesRegex(ValueError, "requires String"):
+            self.check(data)
+
     def test_rejects_unknown_properties(self):
         self.single["contractRegistry"] = []
         with self.assertRaises(ValidationError):

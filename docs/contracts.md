@@ -1,4 +1,14 @@
-# API contract 规范
+# 新 API contract v2
+
+用 atomic-api new 生成草稿，而非让模型从头编写所有 FQN。维护者先配置 profile.roles；operation/business 决定名称和业务子包。草稿只填写用途、请求/响应字段、外部响应及映射。
+
+v2 需要 business、ReqDto/RspDto、独立且同目录的两个 Converter，以及所有目标与角色位置一致。verify 不接受 v1；降级契约不能通过新增验收。参考 [strict-handler.yaml](../examples/strict-handler.yaml)。
+
+草稿为空时 schema 故意不通过，不虚构真实字段或外部模型。字段用真实类型/描述及必要的 required、diagnostic；不能把凭据设为 diagnostic。
+
+## 通用字段与存量兼容
+
+下列字段说明同时适用 v1/v2；v1 为存量保留，独立响应 Converter 在 v1 可选、v2 必需。
 
 每个 API 使用一份 YAML。Schema 定义见 `schemas/api-contract.schema.json`，字段完整示例见 `examples/`。不创建全局 API 清单。
 
@@ -12,12 +22,14 @@ contract 描述设计意图；源码描述当前实现。新增 API 时生成器
 
 | 字段 | 含义 |
 |---|---|
-| version | 当前固定 1 |
+| version | 新增 2，旧版 1 仅保留兼容 |
+| business | v2 必需，Java 标识符，角色包下的业务子包 |
 | operation / description | Java 方法名及用途 |
 | target | Facade、实现、Delegate、请求 Converter 的完整类型名；现有类型可以自动识别，首版 contract 保留明确目标用于消除歧义 |
-| target.responseConverter | 可选独立响应 Converter，新增业务推荐指定；省略保留旧 Delegate 私有映射兼容路径 |
+| target.responseConverter | 可选独立响应 Converter，v2 必需；只有 v1 省略时保留旧 Delegate 私有映射兼容路径 |
 | models | 请求 DTO、业务响应 DTO 的完整类型、sourceRoot、字段及非空约束 |
-| externalResponse | 已有外部响应完整类型名，不生成/修改其模型 |
+| externalResponse | 已有外部响应完整类型名，不生成/修改其模型；String 用 java.lang.String |
+| errorMode | String 必须显式 exception/message；对象可为 null/exception |
 | steps | 按顺序执行的 Handler；声明 id、类、输出类型、输入绑定、输入类型及 sourceRoot |
 | assembly | direct 直接返回末步结果，或 builder 汇总所有步骤 |
 | responseBindings | 外部响应字段来自 业务结果的字段路径 |
@@ -52,4 +64,4 @@ responseBindings 的 key 是外部响应字段，value 为 业务结果字段名
 
 `fault-response.yaml` 演示公共业务模块中的 ReqDto/RspDto 和 service 同目录的 RequestConverter/ResponseConverter。所有 target FQN 互不相同，不能与生成 DTO/Handler/Builder 冲突。
 
-当前生成器只支持可构造且有 setter 的外部对象响应；String 返回、内部节点 DTO、请求字段回填和 MapStruct 处理按真实项目人工实现。不要修改公开契约来绕过生成器限制。详见 [skill 的能力边界](../skills/atomic-api-design/references/contracts.md)。
+当前支持可构造且有 setter 的外部对象，或 String 响应。String 必须绑定 message 到业务 String 字段并指定 errorMode=exception/message；工具不猜已有失败返回形式。内部节点 DTO、请求字段回填和 MapStruct 处理按真实项目人工实现。不要修改公开契约来绕过生成器限制。详见 [skill 的能力边界](../skills/atomic-api-design/references/contracts.md)。

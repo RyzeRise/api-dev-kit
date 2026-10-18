@@ -18,3 +18,13 @@ layout:
     sourceRoot: app/src/main/java
   - packagePrefix: com.example.service
     sourceRoot: service/src/main/java
+
+roles:
+  facade: {packagePrefix: com.example.common.fault.facadeinterface, sourceRoot: ipran-app-api-common/src/main/java}
+  request: {packagePrefix: com.example.common.fault.dto, sourceRoot: ipran-app-api-common/src/main/java}
+  response: {packagePrefix: com.example.common.fault.dto, sourceRoot: ipran-app-api-common/src/main/java}
+  implementation: {packagePrefix: com.example.app, sourceRoot: app/src/main/java}
+  handler: {packagePrefix: com.example.app, sourceRoot: app/src/main/java}
+  delegate: {packagePrefix: com.example.service, sourceRoot: service/src/main/java}
+  requestConverter: {packagePrefix: com.example.service.converter, sourceRoot: service/src/main/java}
+  responseConverter: {packagePrefix: com.example.service.converter, sourceRoot: service/src/main/java}

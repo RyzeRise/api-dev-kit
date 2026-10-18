@@ -3,6 +3,8 @@ pom.xml
 contracts/single-handler.yaml
 contracts/multi-handler.yaml
 contracts/fault-response.yaml
+contracts/strict-handler.yaml
+contracts/strict-message.yaml
 src/main/java/com/example/framework/ApiHandler.java
 src/main/java/com/example/framework/OpsApiException.java
 src/main/java/com/example/framework/ServiceException.java

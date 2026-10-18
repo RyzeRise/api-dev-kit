@@ -16,8 +16,10 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.2.0\n"
+            "atomic-api 0.3.0\n"
                 + "  atomic-api init [--agent codex|claude|cursor|none]\n"
+                + "  atomic-api new --operation <queryXxx> --business <domain>\n"
+                + "  atomic-api verify --contract <api.yaml> [--format text|json]\n"
                 + "  atomic-api demo --repo <empty-directory>\n"
                 + "  atomic-api generate --contract <api.yaml> [--profile <framework.yaml>]"
                 + " [--dry-run | --apply]\n"
@@ -30,7 +32,8 @@ public final class Cli {
         return 0;
       }
       Contract.require(
-          Set.of("init", "demo", "generate", "check").contains(args[0]), "Unknown command");
+          Set.of("init", "demo", "new", "generate", "check", "verify").contains(args[0]),
+          "Unknown command");
       Map<String, String> options = new HashMap<>();
       Set<String> flags = new HashSet<>();
       List<Path> roots = new ArrayList<>(), jars = new ArrayList<>();
@@ -48,7 +51,9 @@ public final class Cli {
                         "--format",
                         "--source-root",
                         "--classpath",
-                        "--agent")
+                        "--agent",
+                        "--operation",
+                        "--business")
                     .contains(key)
                 && i + 1 < args.length,
             "Unknown/missing argument: " + key);
@@ -62,6 +67,10 @@ public final class Cli {
       Contract.require(
           !(flags.contains("--apply") && flags.contains("--dry-run")),
           "--apply and --dry-run are exclusive");
+      Contract.require(
+          args[0].equals("new")
+              || (!options.containsKey("--operation") && !options.containsKey("--business")),
+          "--operation/--business are for new only");
       String format = options.getOrDefault("--format", "text");
       Contract.require(Set.of("text", "json").contains(format), "Unknown format");
       Path repo = Path.of(options.getOrDefault("--repo", ".")).toAbsolutePath().normalize();
@@ -76,8 +85,8 @@ public final class Cli {
         result.files().forEach(out::println);
         out.println(result.profileStatus());
         out.println(
-            "下一步：核对 .atomic-api/profile.yaml，编辑 .atomic-api/contracts/example.yaml，然后 atomic-api"
-                + " check。");
+            "下一步：核对 .atomic-api/profile.yaml，配置 roles，然后 atomic-api"
+                + " new --operation queryExample --business example。");
         if (options.getOrDefault("--agent", "none").equals("none"))
           out.println(
               "Skill 已保存到 .atomic-api/skills/atomic-api-design/；自动发现可运行 atomic-api init --agent"
@@ -115,7 +124,36 @@ public final class Cli {
           !options.containsKey("--profile") || Files.isRegularFile(configured),
           "Specified profile file missing");
       Profile loadedProfile = Files.isRegularFile(configured) ? Profile.load(configured) : null;
-      if (args[0].equals("check")) {
+      if (args[0].equals("new")) {
+        Contract.require(
+            options.keySet().stream()
+                    .allMatch(
+                        k -> Set.of("--repo", "--profile", "--operation", "--business").contains(k))
+                && flags.isEmpty()
+                && roots.isEmpty()
+                && jars.isEmpty(),
+            "new accepts --repo/--profile/--operation/--business only");
+        Contract.require(
+            options.containsKey("--operation") && options.containsKey("--business"),
+            "new requires --operation and --business");
+        Path created =
+            NewContract.create(
+                repo, loadedProfile, options.get("--operation"), options.get("--business"));
+        out.println("DRAFT " + created);
+        out.println(
+            "只填写 description、models.request.fields、models.response.fields、externalResponse、responseBindings；String"
+                + " 响应另填 errorMode（exception/message）。字段来自真实需求和外部模型。不要修改自动确定的类名/包/目录。再运行 atomic-api"
+                + " generate --contract <本文件> --dry-run。");
+        return 0;
+      }
+      boolean verify = args[0].equals("verify");
+      if (verify) {
+        Contract.require(
+            contract != null && contract.version() == 2,
+            "STRICT-001: verify requires a version 2 contract; create it with atomic-api new");
+        Conventions.requireRoles(loadedProfile);
+      }
+      if (args[0].equals("check") || verify) {
         var report = new Checker(loadedProfile).check(index, contract);
         if (format.equals("json"))
           out.println(
@@ -124,13 +162,21 @@ public final class Cli {
                   .writeValueAsString(
                       Map.of(
                           "schemaVersion",
-                          1,
+                          2,
                           "toolVersion",
-                          "0.2.0",
+                          "0.3.0",
                           "scope",
                           repo.toString(),
                           "report",
-                          report)));
+                          report,
+                          "status",
+                          report.exitCode(flags.contains("--warnings-as-errors")) == 0
+                              ? (verify ? "STRUCTURE_READY" : "CHECKED")
+                              : "BLOCKED",
+                          "nextAction",
+                          verify
+                              ? "结构检查不能证明业务正确；继续执行项目编译和定向测试，报告命令与退出码。"
+                              : "按 finding.fix 修复后重跑原命令。")));
         else {
           report
               .findings()
@@ -138,11 +184,20 @@ public final class Cli {
                   f ->
                       out.printf(
                           "%s %s %s:%d %s%n",
-                          f.severity(), f.rule(), f.file(), f.line(), f.message()));
+                          f.severity(),
+                          f.rule(),
+                          f.file(),
+                          f.line(),
+                          f.message() + "\n  FIX: " + f.fix()));
           out.printf(
               "Methods discovered=%d checked=%d readiness=%s%n",
               report.discoveredMethods(), report.checkedMethods(), report.readiness());
           out.println("Manual review: " + String.join("; ", report.manualChecks()));
+          if (verify)
+            out.println(
+                report.exitCode(flags.contains("--warnings-as-errors")) == 0
+                    ? "STRUCTURE_READY：继续项目编译与定向测试；本命令不证明业务正确。"
+                    : "BLOCKED：按 FIX 修复并重跑同一 verify 命令；不要降低 contract 版本或修改规则绕过。");
         }
         return report.exitCode(flags.contains("--warnings-as-errors"));
       }
@@ -170,11 +225,13 @@ public final class Cli {
             flags.contains("--apply")
                 ? "APPLIED; readiness=SCAFFOLD"
                 : "DRY-RUN; no files written");
-        out.println("待实现：Handler 底层调用、必要 Builder 字段汇总；请编译并执行测试。");
+        out.println(
+            "可先编译验证接线/补齐类型信息；实现 Handler 和必要 Builder 后运行 verify，再完成项目测试。只交骨架须报告 SCAFFOLD、业务未验收。");
       }
       return 0;
     } catch (Exception e) {
       err.println("INCOMPLETE: " + e.getMessage());
+      err.println("FIX: 契约草稿先填业务字段、外部响应和映射；类型/路径按 profile 与真实源码确认。不得降低版本、删除断言或修改检查器绕过失败。");
       for (Throwable recovery : e.getSuppressed())
         err.println("RECOVERY FAILED: " + recovery.getMessage());
       return e.getMessage() != null && e.getMessage().startsWith("CONFLICT:") ? 1 : 2;

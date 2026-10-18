@@ -2,6 +2,8 @@
 
 ## 开始与实现
 
+- 新增 API 必须运行 version 2 契约的 atomic-api verify；业务验收必须同时具备退出 0/STRUCTURE_READY 与实际项目编译、定向测试证据；可提前编译检查接线或补齐类型信息。check/v1 只用于历史接口，不替代验收。
+
 - 保存任务约束和 git status；找到入口、公共契约、Facade 实现、Handler、原子接口/Latest/REST 和 Maven 接线。
 - 比较修改前后的字段、默认值、null/空集合、顺序、错误文本、异常类型、JSON 与公开工具名。
 - 核对 Converter 纯映射、Builder 业务汇总、Handler 实际生命周期职责和注册链。
