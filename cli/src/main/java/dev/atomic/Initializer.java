@@ -9,18 +9,7 @@ import org.yaml.snakeyaml.Yaml;
 final class Initializer {
   record Result(List<String> files, String profileStatus) {}
 
-  static Result initialize(Path directory, String agent) throws Exception {
-    var agentRoots =
-        Map.of(
-            "none",
-            "",
-            "codex",
-            ".agents/skills",
-            "claude",
-            ".claude/skills",
-            "cursor",
-            ".cursor/skills");
-    Contract.require(agentRoots.containsKey(agent), "Unknown agent: " + agent);
+  static Result initialize(Path directory) throws Exception {
     Path root = directory.toRealPath();
     Map<String, String> assets = new LinkedHashMap<>();
     Map<Path, String> dependencies = new LinkedHashMap<>();
@@ -67,7 +56,6 @@ final class Initializer {
           !file.contains("..") && !file.startsWith("/"), "Unsafe skill asset: " + file);
       String text = resource("/init/skills/" + file);
       assets.put(".atomic-api/skills/" + file, text);
-      if (!agent.equals("none")) assets.put(agentRoots.get(agent) + "/" + file, text);
     }
     List<GenerationPlan.Change> changes = new ArrayList<>();
     List<String> messages = new ArrayList<>();

@@ -5,7 +5,9 @@ description: 开发或审查 App API 的公共契约、业务编排和 service �
 
 # App API Dev
 
-先执行同插件的 [固定开发流程](../atomic-api-dev/SKILL.md)。新增使用 `new → generate → 补业务 → verify → 项目编译测试`；不要自由设计目录或以旧 contract/check 代替验收。
+先读取并执行同目录下的 [固定开发流程](../atomic-api-dev/SKILL.md)。新增使用 `new → generate → 补业务 → verify → 项目编译测试`；不要自由设计目录或以旧 contract/check 代替验收。
+
+统一从 `.atomic-api/skills/` 读取 Skill，使用 `.atomic-api/tool/` 中的仓库内脚本；无需配置任何 Agent 专用 skill 目录。具体操作系统入口和失败处理按上面的固定流程执行。
 
 模块与包名以实际 profile/roles 和现有业务为准；参考资料中的 IPRAN fault 路径只适用于该业务，不能复制到其他 App 模块。
 

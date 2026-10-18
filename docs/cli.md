@@ -1,9 +1,9 @@
 # CLI：固定开发路径
 
-0.3.1 的新增入口是 new，验收入口是 verify。项目维护者完成一次 init/profile/roles 配置后，代码代理只填写业务事实、实现占位并依据 FIX 修复。
+0.4.0 的新增入口是 new，验收入口是 verify。项目维护者完成一次 init/profile/roles 配置后，代码代理只填写业务事实、实现占位并依据 FIX 修复。
 
 ```text
-atomic-api init --agent codex
+atomic-api init
 atomic-api new --operation queryCircuit --business circuit
 atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
 atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --apply
@@ -61,7 +61,7 @@ INCOMPLETE 优先于 ERROR；完整 finding 仍输出。`--warnings-as-errors` �
 
 所有命令默认当前目录，--repo 指定项目。显式 --profile 优先，否则读取 .atomic-api/profile.yaml，再兼容根目录 atomic-api-profile.yaml。相对 contract/profile 以当前工作目录解析，--source-root 相对 repo，可多次指定 source-root/classpath。
 
-init 仅写项目工具目录，可显式 --agent codex/claude/cursor 安装两份完整 skill。已有文件不覆盖，旧 profile 原样迁移，符号链接与越界写入拒绝；不修改 AGENTS.md/CLAUDE.md。升级需审阅本地定制差异。
+init 仅写项目工具目录，可显式/claude/cursor 安装两份完整 skill。已有文件不覆盖，旧 profile 原样迁移，符号链接与越界写入拒绝；不修改 AGENTS.md/CLAUDE.md。升级需审阅本地定制差异。
 
 源码和 POM 检查跳过构建产物与 .atomic-api 临时副本。Maven XML 禁止 DTD/外部实体；检查不运行 Maven、不下载依赖、不计算完整 effective model。真实 Reactor、profile、BOM、classifier 和 classpath 由实际构建验证。
 

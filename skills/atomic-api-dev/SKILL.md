@@ -9,28 +9,36 @@ description: 按固定 CLI 流程新增或审查 Java 分层 API：生成规范�
 
 目标：只决定业务字段和逻辑。类名、包、模块和分层由项目配置与工具约束。
 
+## 先定位仓库与工具
+
+无论使用哪个 Code Agent，先将工作目录切到本业务仓库根目录。Skill 统一位于 `.atomic-api/skills/`，不依赖 Agent 自动发现；用户提供 SKILL.md 路径时直接读取并执行。
+
+使用仓库内的 `.atomic-api/tool/atomic-api.sh`（Linux/macOS）或 `.atomic-api/tool/atomic-api.cmd`（Windows）。先运行 `-h` 确认入口可用；脚本和配套 JAR 必须完整，运行需要 Java 17+。缺工具/配置时报告缺失位置，不安装全局命令、不修改 PATH、不下载或猜测业务能力。
+
+下文命令在 Linux/macOS 可直接执行；Windows PowerShell 将前缀 `sh .atomic-api/tool/atomic-api.sh` 换为 `& ".atomic-api/tool/atomic-api.cmd"`，CMD 换为 `.atomic-api\tool\atomic-api.cmd`。保留参数和退出码，所有命令均在业务仓库根目录执行。
+
 ## 新增 API：按顺序执行
 
 1. 读项目 AGENTS.md、git status、`.atomic-api/profile.yaml` 和目标业务已有接口。确认真实外部模型和能力；不要猜字段或包名。项目维护者应先配置框架、layout 和 roles。缺少配置时按工具 FIX 报告阻塞，不能把 com.example 示例当业务配置。
 2. 在项目根目录运行下列命令，把名称换成本次真实操作与业务：
 
 ```text
-atomic-api new --operation queryCircuit --business circuit
+sh .atomic-api/tool/atomic-api.sh new --operation queryCircuit --business circuit
 ```
 
 3. 编辑输出的 `.atomic-api/contracts/queryCircuit.yaml`，只填写 `description`、`models.request.fields`、`models.response.fields`、`externalResponse`、`responseBindings`。字段用真实 Java 类型，映射值是业务响应字段名；不填表达式。String 外部响应另按真实契约填 `errorMode: exception`（抛异常）或 `message`（返回失败消息），并用 `responseBindings: {message: 业务字符串字段}`；不能猜错误形式。保留 `version: 2` 和自动确定的类名、目录。确需多 Handler/Builder 时先读 [契约说明](references/contracts.md)。
 4. 预览 diff，核对任务范围后应用：
 
 ```text
-atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
-atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --apply
+sh .atomic-api/tool/atomic-api.sh generate --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
+sh .atomic-api/tool/atomic-api.sh generate --contract .atomic-api/contracts/queryCircuit.yaml --apply
 ```
 
 5. 实现 Handler 报告的占位业务。pre 校验并建原子请求；invoke 获取能力并调用；post 校验并转换响应。字段复制放 Converter，Facade 只编排。不要直接在 Delegate 组装响应，不创建空旧版本。需要判断职责时查 [规则](references/rules.md)。
 6. 运行验收，按每条 `FIX` 修改源码，然后重跑同一命令：
 
 ```text
-atomic-api verify --contract .atomic-api/contracts/queryCircuit.yaml
+sh .atomic-api/tool/atomic-api.sh verify --contract .atomic-api/contracts/queryCircuit.yaml
 ```
 
 7. 业务交付必须同时具备 verify 退出 0/`STRUCTURE_READY`、项目编译和定向测试证据。可以先编译检查接线或生成类型；遇类型缺失时先构建依赖、补 classpath，再重查。报告命令、退出码与统计，不能把结构通过当业务正确或云端通过。按任务已有授权提交推送。
@@ -44,7 +52,7 @@ atomic-api verify --contract .atomic-api/contracts/queryCircuit.yaml
 - ERROR：按位置和 FIX 修复；INCOMPLETE：补实际源码/profile/classpath 后重查，不能当通过。
 - STRICT-007：实现真实能力和结果处理。不能只删占位文本、返回 null 或空响应。
 - 不降低 contract 版本，不改 roles/检查器、不删除断言或改用宽松 check 来伪装验收。
-- 新增时不复制旧示例重新设计结构。只读旧接口审查可用 `atomic-api check`，不强制初始化或生成；它不是新增 API 的交付门槛。
+- 新增时不复制旧示例重新设计结构。只读旧接口审查可用 `sh .atomic-api/tool/atomic-api.sh check`，不强制初始化或生成；它不是新增 API 的交付门槛。
 - 复杂原子版本族、SimpleApiHandler、嵌套模型生成和超出 schema 的逻辑需要维护者适配；不要改已发布契约迎合工具。
 
 临时日志放 `.atomic-api/work/<operation>/`，构建超时续读同一任务。构建失败、迁移及交付细节仅在需要时读 [验证清单](references/review-checklist.md)。App 业务编排、DTO、转换与兼容性规则使用 `app-api-dev`。

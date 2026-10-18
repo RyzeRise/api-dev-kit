@@ -7,7 +7,7 @@
 Windows（PowerShell 或 CMD）：
 
 ```powershell
-C:/tools/atomic-api/atomic-api.cmd init --agent codex
+C:/tools/atomic-api/atomic-api.cmd init
 C:/tools/atomic-api/atomic-api.cmd new --operation queryCircuit --business circuit
 ```
 
@@ -16,7 +16,7 @@ PowerShell 中路径含空格时用 `& "C:/my tools/atomic-api/atomic-api.cmd" -
 Linux / macOS：
 
 ```bash
-sh /tools/atomic-api/atomic-api.sh init --agent codex
+sh /tools/atomic-api/atomic-api.sh init
 sh /tools/atomic-api/atomic-api.sh new --operation queryCircuit --business circuit
 ```
 
@@ -27,3 +27,13 @@ sh /tools/atomic-api/atomic-api.sh new --operation queryCircuit --business circu
 退出码原样返回；缺少 JAR 或 Java 时退出 2。更新工具时换用完整新便携包。已有项目的配置和 skill 不会被 init 覆盖，需对照合并；旧 skill 名称分别迁移为 atomic-api-dev 和 app-api-dev，确认定制已保留后再移除旧目录。
 
 源码 ZIP 不含编译产物；普通使用者请下载 GitHub Actions 的 atomic-api-cli 构建产物，解开产物中的 atomic-api-cli.zip。开发者从源码构建一次 `mvn -f cli/pom.xml package` 后也能直接运行入口。
+
+## 统一仓库目录
+
+推荐把包内 atomic-api/ 整个目录放到业务仓库的 `.atomic-api/tool/`，在业务仓库根运行 `sh .atomic-api/tool/atomic-api.sh init`（Windows PowerShell：`& ".atomic-api/tool/atomic-api.cmd" init`）。初始化只分发到 `.atomic-api/skills/`，不再接受 --agent。
+
+维护者核对 `.atomic-api/profile.yaml` 后，直接提示任意支持文件和终端操作的 Agent：
+
+> 请读取 `.atomic-api/skills/app-api-dev/SKILL.md`，完成这个开发任务：……
+
+Skill 包含真实脚本位置及操作系统调用方法。原子能力开发改用 atomic-api-dev/SKILL.md。旧 Agent 专用目录不会自动删除，升级时由维护者合并定制后移除，避免重复指令。

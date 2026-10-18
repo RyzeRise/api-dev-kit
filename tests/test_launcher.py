@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JAR = ROOT / 'cli/target/atomic-api-0.3.1.jar'
+JAR = ROOT / 'cli/target/atomic-api-0.4.0.jar'
 
 
 @unittest.skipIf(os.name == 'nt', 'POSIX entry; Windows runs a PowerShell smoke test')
@@ -124,12 +124,23 @@ class LauncherTests(unittest.TestCase):
             env = dict(os.environ, HOME=str(home), JAVA_HOME='', PATH=str(runtime))
             self.assertIsNone(shutil.which('mvn', path=env['PATH']))
             before = list(home.iterdir())
-            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'init', '--agent', 'codex'],
+            # Standard repository-local layout; no global command registration.
+            local_tool = project / '.atomic-api/tool'
+            local_tool.parent.mkdir()
+            shutil.move(str(tool), str(local_tool))
+            tool = local_tool
+            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'init'],
                                     cwd=project, env=env, capture_output=True, text=True)
             self.assertEqual(0, result.returncode, result.stderr)
-            self.assertTrue((project / '.agents/skills/atomic-api-dev/SKILL.md').is_file())
-            self.assertTrue((project / '.agents/skills/app-api-dev/SKILL.md').is_file())
+            self.assertTrue((project / '.atomic-api/skills/atomic-api-dev/SKILL.md').is_file())
+            self.assertTrue((project / '.atomic-api/skills/app-api-dev/SKILL.md').is_file())
             self.assertFalse((tool / '.atomic-api').exists())
+            for agent_dir in ['.agents', '.claude', '.cursor']:
+                self.assertFalse((project / agent_dir).exists())
+            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'new', '--operation', 'queryCircuit', '--business', 'circuit'],
+                                    cwd=project, env=env, capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertTrue((project / '.atomic-api/contracts/queryCircuit.yaml').is_file())
             self.assertEqual(before, list(home.iterdir()))
             result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'check', '--repo', 'missing directory'],
                                     cwd=project, env=env, capture_output=True, text=True)

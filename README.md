@@ -1,6 +1,6 @@
 # Atomic API Pattern
 
-**0.3.1：让代码代理按固定步骤开发规范 Java API。** Skill 负责简短操作指令；CLI 固定包、目录和结构，检查源码并给出逐项 FIX。新开发使用 `new → generate → 实现业务 → verify → 项目编译测试`。
+**0.4.0：让代码代理按固定步骤开发规范 Java API。** Skill 负责简短操作指令；CLI 固定包、目录和结构，检查源码并给出逐项 FIX。新开发使用 `new → generate → 实现业务 → verify → 项目编译测试`。
 
 ## 解压即用（推荐）
 
@@ -11,16 +11,16 @@
 Windows PowerShell / CMD：
 
 ```powershell
-C:/tools/atomic-api/atomic-api.cmd init --agent codex
+C:/tools/atomic-api/atomic-api.cmd init
 ```
 
 Linux / macOS：
 
 ```bash
-sh /tools/atomic-api/atomic-api.sh init --agent codex
+sh /tools/atomic-api/atomic-api.sh init
 ```
 
-后文 `atomic-api ...` 表示同一入口；免安装时使用上述脚本路径替换命令名。PowerShell 路径含空格时写 `& "C:/my tools/atomic-api/atomic-api.cmd" -h`。工具不改变当前目录，默认处理调用时的业务项目，也支持 `--repo <path>`。详细见 [便携使用说明](PORTABLE.md)。
+后文 `atomic-api ...` 是命令简写；Agent 按 skill 使用 `.atomic-api/tool/` 中的实际脚本路径。PowerShell 路径含空格时写 `& "C:/my tools/atomic-api/atomic-api.cmd" -h`。工具不改变当前目录，默认处理调用时的业务项目，也支持 `--repo <path>`。详细见 [便携使用说明](PORTABLE.md)。
 
 ## 从源码使用或安装（可选）
 
@@ -28,9 +28,34 @@ GitHub 源码 ZIP 不含 JAR。开发者需要 JDK 17、Maven 3.8+，先运行 `
 
 如希望日常使用短命令 `atomic-api`，可选择运行 `./install.ps1`（Windows）或 `sh install.sh`（Linux/macOS）并打开新终端；安装脚本也支持已构建 JAR。生成业务源码的语言版本由业务 profile 决定。
 
+## 放进业务仓库，提示 Agent 即可使用
+
+将便携包内 `atomic-api/` 整个目录放到业务仓库的 `.atomic-api/tool/`。在业务仓库根目录执行一次：
+
+```bash
+sh .atomic-api/tool/atomic-api.sh init
+```
+
+Windows PowerShell 用 `& ".atomic-api/tool/atomic-api.cmd" init`。之后统一得到：
+
+```text
+.atomic-api/
+  tool/                         # 脚本及配套 JAR
+  profile.yaml                  # 项目框架、模块与角色配置
+  skills/atomic-api-dev/SKILL.md
+  skills/app-api-dev/SKILL.md
+  contracts/                    # 每次任务的业务契约
+```
+
+初始化并核对 profile 后，对任意能读文件、执行命令的 Code Agent 提示：
+
+> 请读取 `.atomic-api/skills/app-api-dev/SKILL.md`，新增一个根据地址查询电路的接口，复用项目已有底层查询能力。按 skill 调用仓库内脚本生成、检查并运行相关编译测试。
+
+原子能力任务改为引用 `.atomic-api/skills/atomic-api-dev/SKILL.md`。不依赖 Codex、Claude Code、DeepSeek Harness 的自动发现目录；Agent 是否自动识别名称取决于其自身，明确文件路径始终是本项目推荐入口。资料不足时应说明缺少什么并保留骨架，不能编造成功实现。
+
 ## 项目维护者只配置一次
 
-在业务项目根目录运行 `atomic-api init --agent codex`（也支持 claude/cursor，省略 agent 则只写 `.atomic-api/`）。核对 `.atomic-api/profile.yaml` 中实际框架类型、layout 和 **roles**；[配置示例](docs/framework-profile.md) 说明各层的固定包与模块。
+在业务项目根目录运行 `atomic-api init`。核对 `.atomic-api/profile.yaml` 中实际框架类型、layout 和 **roles**；[配置示例](docs/framework-profile.md) 说明各层的固定包与模块。
 
 配置由熟悉项目的人确定，后续新增操作不需要反复设计目录。不能自动识别时工具会明确提示；com.example 只是虚构示例。init 保留已有文件与定制，不修改 AGENTS.md。
 
@@ -90,7 +115,7 @@ atomic-api verify --repo ../atomic-api-demo --contract ../atomic-api-demo/contra
 
 所有命令默认当前目录，可用 `--repo <path>` 指定。配置、contract、schema、skill 归入 `.atomic-api/`；日志、参数文件和临时产物放 `.atomic-api/work/<operation>/`。
 
-已有 v1 contract 仍可 generate/check，防止破坏存量项目；**verify 拒绝 v1，新增必须使用 new 创建 v2。** init 不覆盖本地旧文件，升级时在临时目录初始化新版本并对照合并定制 profile/skill；主项目升级后要配置 roles。0.3.1 将 atomic-api-design 改名为 atomic-api-dev，将 ipran-fault-api-dev 改名为 app-api-dev。已有 skill 不会被删除：对照保留定制、更新代理引用，再手动移除旧目录，避免同时触发两份旧新指令。
+已有 v1 contract 仍可 generate/check，防止破坏存量项目；**verify 拒绝 v1，新增必须使用 new 创建 v2。** init 不覆盖本地旧文件，升级时在临时目录初始化新版本并对照合并定制 profile/skill；主项目升级后要配置 roles。0.3.1 将 atomic-api-design 改名为 atomic-api-dev，将 ipran-fault-api-dev 改名为 app-api-dev。已有 skill 不会被删除：对照保留定制、更新代理引用，再手动移除旧目录，避免同时触发两份旧新指令。0.4.0 取消 --agent 和 Agent 专用目录分发，统一引用 .atomic-api/skills/ 中的文件。
 
 ## 文档
 

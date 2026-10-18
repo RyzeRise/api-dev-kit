@@ -1,3 +1,9 @@
+# 0.4.0：统一仓库内调用
+
+init 只分发到 .atomic-api/skills，删除 --agent 和 Agent 专用目录接线，旧目录不自动删除。便携包统一建议放 .atomic-api/tool；Skill 明确 Linux/macOS 与 Windows 的实际调用前缀，不依赖全局命令或 Agent 自动发现。用户可以直接引用 SKILL.md 路径下达简单任务。init 保留配置及技能定制，升级需审阅差异。
+
+验证记录：100 项 Java 测试、30 项 Python 测试通过，无跳过。测试把实际 ZIP 放入业务仓库 .atomic-api/tool，在无全局命令、无 Maven 的 PATH 下执行 init/new，核对两份 skill 只落在统一目录；旧 --agent 参数在写入前拒绝。Windows 同路径由 CI 实际执行。
+
 # 0.3.1：便携运行与技能命名
 
 便携 ZIP 增加根目录 atomic-api.sh / atomic-api.cmd 和 PORTABLE.md，解压后可从业务目录直接调用，无需安装、Maven 或修改 PATH；运行仍需 Java 17+。可选安装方式保持可用。两份 skill 正式命名为 atomic-api-dev / app-api-dev，同步目录、元数据、内置资源及引用；IPRAN fault 路径标注为参考场景，不作为所有 App 的固定目录。init 保留旧文件，升级需合并定制后移除旧 skill。

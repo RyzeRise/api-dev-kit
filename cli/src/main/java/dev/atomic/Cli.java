@@ -16,8 +16,8 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.3.1\n"
-                + "  atomic-api init [--agent codex|claude|cursor|none]\n"
+            "atomic-api 0.4.0\n"
+                + "  atomic-api init [--repo <path>]\n"
                 + "  atomic-api new --operation <queryXxx> --business <domain>\n"
                 + "  atomic-api verify --contract <api.yaml> [--format text|json]\n"
                 + "  atomic-api demo --repo <empty-directory>\n"
@@ -27,7 +27,7 @@ public final class Cli {
                 + " [--warnings-as-errors]\n"
                 + "  source discovery: [--source-root <path>]... [--classpath <jar>]...\n"
                 + "所有命令默认在当前目录运行，可用 --repo <path> 指定项目。\n"
-                + "init 的配置、contract、Skill 均放入 .atomic-api/；--agent 可额外安装项目 Skill。\n"
+                + "init 的配置、contract、Skill 均放入 .atomic-api/；Skill 统一由提示中的文件路径读取。\n"
                 + "生成默认 dry-run。业务占位会抛明确异常，检查结果为 SCAFFOLD。");
         return 0;
       }
@@ -51,7 +51,6 @@ public final class Cli {
                         "--format",
                         "--source-root",
                         "--classpath",
-                        "--agent",
                         "--operation",
                         "--business")
                     .contains(key)
@@ -62,8 +61,6 @@ public final class Cli {
         else if (key.equals("--classpath")) jars.add(Path.of(value));
         else Contract.require(options.putIfAbsent(key, value) == null, "Duplicate option: " + key);
       }
-      Contract.require(
-          args[0].equals("init") || !options.containsKey("--agent"), "--agent is for init only");
       Contract.require(
           !(flags.contains("--apply") && flags.contains("--dry-run")),
           "--apply and --dry-run are exclusive");
@@ -76,21 +73,19 @@ public final class Cli {
       Path repo = Path.of(options.getOrDefault("--repo", ".")).toAbsolutePath().normalize();
       if (args[0].equals("init")) {
         Contract.require(
-            options.keySet().stream().allMatch(k -> Set.of("--repo", "--agent").contains(k))
+            options.keySet().stream().allMatch("--repo"::equals)
                 && flags.isEmpty()
                 && roots.isEmpty()
                 && jars.isEmpty(),
-            "init accepts --repo and --agent only");
-        var result = Initializer.initialize(repo, options.getOrDefault("--agent", "none"));
+            "init accepts --repo only");
+        var result = Initializer.initialize(repo);
         result.files().forEach(out::println);
         out.println(result.profileStatus());
         out.println(
             "下一步：核对 .atomic-api/profile.yaml，配置 roles，然后 atomic-api"
                 + " new --operation queryExample --business example。");
-        if (options.getOrDefault("--agent", "none").equals("none"))
-          out.println(
-              "Skill 已保存到 .atomic-api/skills/atomic-api-dev/；自动发现可运行 atomic-api init --agent"
-                  + " codex|claude|cursor。");
+        out.println("提示 Agent：请读取 .atomic-api/skills/app-api-dev/SKILL.md，按其中流程完成任务。");
+        out.println("仓库内便携工具约定放在 .atomic-api/tool/，Skill 会优先调用该目录的脚本。");
         return 0;
       }
       if (args[0].equals("demo")) {
@@ -164,7 +159,7 @@ public final class Cli {
                           "schemaVersion",
                           2,
                           "toolVersion",
-                          "0.3.1",
+                          "0.4.0",
                           "scope",
                           repo.toString(),
                           "report",
