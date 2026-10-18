@@ -33,9 +33,9 @@ class CliTest {
     assertTrue(Files.readString(profile).contains("待配置"));
     assertDoesNotThrow(() -> Profile.load(profile));
     assertDoesNotThrow(() -> Contract.load(contract));
-    assertTrue(Files.exists(root.resolve(".atomic-api/skills/atomic-api-design/SKILL.md")));
+    assertTrue(Files.exists(root.resolve(".atomic-api/skills/atomic-api-dev/SKILL.md")));
     assertTrue(
-        Files.exists(root.resolve(".atomic-api/skills/atomic-api-design/references/rules.md")));
+        Files.exists(root.resolve(".atomic-api/skills/atomic-api-dev/references/rules.md")));
     assertTrue(Files.exists(root.resolve(".atomic-api/schemas/api-contract.schema.json")));
     try (var files = Files.list(root)) {
       assertEquals(
@@ -55,8 +55,8 @@ class CliTest {
     assertTrue(Files.readString(root.resolve(".atomic-api/.gitignore")).contains("work/"));
     assertTrue(Files.exists(root.resolve(".atomic-api/work/.gitignore")));
     for (String skill : java.util.List.of(
-        ".atomic-api/skills/atomic-api-design/SKILL.md",
-        ".agents/skills/atomic-api-design/SKILL.md")) {
+        ".atomic-api/skills/atomic-api-dev/SKILL.md",
+        ".agents/skills/atomic-api-dev/SKILL.md")) {
       assertTrue(Files.readString(root.resolve(skill)).contains(".atomic-api/work/<operation>/"));
     }
     String contract = root.resolve("contracts/single-handler.yaml").toString();
@@ -95,11 +95,11 @@ class CliTest {
     assertEquals(2, run("init", "--repo", root.toString(), "--agent", "unknown"));
     assertFalse(Files.exists(root.resolve(".atomic-api")));
     assertEquals(0, run("init", "--repo", root.toString(), "--agent", "codex"));
-    assertTrue(Files.exists(root.resolve(".agents/skills/atomic-api-design/SKILL.md")));
-    assertTrue(Files.exists(root.resolve(".agents/skills/ipran-fault-api-dev/references/verification.md")));
+    assertTrue(Files.exists(root.resolve(".agents/skills/atomic-api-dev/SKILL.md")));
+    assertTrue(Files.exists(root.resolve(".agents/skills/app-api-dev/references/verification.md")));
     assertDoesNotThrow(() -> Contract.load(root.resolve(".atomic-api/contracts/fault-response.yaml")));
     assertEquals(0, run("init", "--repo", root.toString(), "--agent", "claude"));
-    assertTrue(Files.exists(root.resolve(".claude/skills/atomic-api-design/references/rules.md")));
+    assertTrue(Files.exists(root.resolve(".claude/skills/atomic-api-dev/references/rules.md")));
   }
 
   @Test

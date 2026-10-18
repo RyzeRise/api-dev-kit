@@ -1,6 +1,6 @@
 # 总体设计
 
-当前实现为 0.3.0。新增流程通过 new 与 verify 降低模型自由度，CLI 负责可证明的结构、受限生成和安全写入；skill 负责分层决策、兼容性、人工审查与验证流程。实际范围以 [CLI 使用约定](cli.md) 和报告为准。
+当前实现为 0.3.1。新增流程通过 new 与 verify 降低模型自由度，CLI 负责可证明的结构、受限生成和安全写入；skill 负责分层决策、兼容性、人工审查与验证流程。实际范围以 [CLI 使用约定](cli.md) 和报告为准。
 
 ## 组件
 
@@ -44,7 +44,7 @@ LexicalPreservingPrinter 保留无关代码，支持 CRLF/BOM 与已有文件权
 
 两份 skill 的全部资源通过 manifest 打包并回归验证；init 保留本地定制，不自动覆盖升级。自动测试只用虚构 com.example 类型，不依赖私有父 POM或上传业务源码。插件运行需 JDK 17，业务目标版本由 profile 和业务项目决定。
 
-## 0.3.0 的默认路径
+## 0.3.1 的默认路径
 
 项目维护者一次配置 roles，模型只提供 operation/business 和五类业务事实；new 生成 v2 草稿，不猜字段。generate 在写前校验角色约束，verify 结合 StrictChecks 验证实际架构，输出逐项 fix 和 BLOCKED/STRUCTURE_READY。
 

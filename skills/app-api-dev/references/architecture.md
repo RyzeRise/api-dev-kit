@@ -1,6 +1,6 @@
 # 职责与公共契约
 
-使用实际 package 与 sourceRoot，不把物理目录拼写当作 Java 包名。以下 `<business>` 表示对应业务目录，前缀以仓库已有源码为准。
+使用实际 package 与 sourceRoot，不把物理目录拼写当作 Java 包名。以下 `<business>` 表示对应业务目录，前缀以仓库已有源码为准。下表的 IPRAN fault 模块名是既有场景示例，其他 App 使用其实际 profile/roles。
 
 | 层 | 位置与职责 |
 |---|---|
@@ -18,7 +18,7 @@
 只属于一个 RspDto 的子节点定义为该响应的 `public static` 内部类，有自己的 Lombok 注解；更新所有引用和转换器。只有多个独立公共契约真正复用时才使用顶层共享 DTO。源码引用次数不是判断标准。
 
 - RequestConverter：REST 请求转业务 ReqDto；不承担响应模型和节点映射。
-- 业务 Converter：原子 DTO/节点转业务 DTO/节点；留在故障实现模块，保留映射字段与顺序。
+- 业务 Converter：原子 DTO/节点转业务 DTO/节点；留在对应 App 实现模块，保留映射字段与顺序。
 - ResponseConverter：与 service 的 RequestConverter 同业务目录；复制业务 RspDto 字段、必要时回填请求字段并校验完整性，返回 REST 模型或字符串。节点到 REST 模型的映射也放这里。
 
 Converter 不查询外部能力、不重新计算业务状态、不引入业务 Builder。MapStruct 使用项目既有 INSTANCE 模式；严格未映射目标策略可暴露新增字段遗漏。必要校验放 default 方法。核对 processor 和 Lombok binding，仅在证实缺失时补齐，再检查生成实现，不能只验证源码注解。

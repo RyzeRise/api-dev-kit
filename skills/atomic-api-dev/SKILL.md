@@ -1,9 +1,11 @@
 ---
-name: atomic-api-design
+name: atomic-api-dev
 description: 按固定 CLI 流程新增或审查 Java 分层 API：生成规范契约和代码骨架，用 verify 阻止架构违规与未实现占位，再运行项目编译测试。适合需要明确步骤和自动约束的代码代理。
 ---
 
-# 按工具流程开发 API
+# Atomic API Dev
+
+使用于原子能力开发、接入与 API 结构检查；共同 CLI 流程也供 App API 开发复用。原子接口、版本实现和注册必须依据真实框架；当前生成器不自动生成完整原子版本族。
 
 目标：只决定业务字段和逻辑。类名、包、模块和分层由项目配置与工具约束。
 
@@ -45,4 +47,4 @@ atomic-api verify --contract .atomic-api/contracts/queryCircuit.yaml
 - 新增时不复制旧示例重新设计结构。只读旧接口审查可用 `atomic-api check`，不强制初始化或生成；它不是新增 API 的交付门槛。
 - 复杂原子版本族、SimpleApiHandler、嵌套模型生成和超出 schema 的逻辑需要维护者适配；不要改已发布契约迎合工具。
 
-临时日志放 `.atomic-api/work/<operation>/`，构建超时续读同一任务。构建失败、迁移及交付细节仅在需要时读 [验证清单](references/review-checklist.md)。IPRAN 故障业务的 DTO、版本与 JSON 规则使用 `ipran-fault-api-dev`。
+临时日志放 `.atomic-api/work/<operation>/`，构建超时续读同一任务。构建失败、迁移及交付细节仅在需要时读 [验证清单](references/review-checklist.md)。App 业务编排、DTO、转换与兼容性规则使用 `app-api-dev`。

@@ -1,26 +1,32 @@
 # Atomic API Pattern
 
-**0.3.0：让代码代理按固定步骤开发规范 Java API。** Skill 负责简短操作指令；CLI 固定包、目录和结构，检查源码并给出逐项 FIX。新开发使用 `new → generate → 实现业务 → verify → 项目编译测试`。
+**0.3.1：让代码代理按固定步骤开发规范 Java API。** Skill 负责简短操作指令；CLI 固定包、目录和结构，检查源码并给出逐项 FIX。新开发使用 `new → generate → 实现业务 → verify → 项目编译测试`。
 
-## 快速试用
+## 解压即用（推荐）
 
-一次安装后，在业务项目根目录直接使用 `atomic-api`。源码安装需要 JDK 17、Maven 3.8+，安装脚本负责构建和命令注册；生成的业务代码使用 Java 8 兼容语法。
+从 [GitHub Actions](https://github.com/RyzeRise/atomic-api-pattern/actions/workflows/build-java.yml) 的成功构建下载 `atomic-api-cli` 产物，解开其中的 `atomic-api-cli.zip`。便携包包含入口脚本和预编译 JAR；保留整个 `atomic-api/` 目录。
 
-进入包含安装脚本的工具目录，按操作系统执行安装。
+只需 Java 17+，无需安装本工具、Maven、Python、管理员权限或修改 PATH。在**业务项目根目录**调用：
 
-Windows PowerShell：
+Windows PowerShell / CMD：
 
 ```powershell
-./install.ps1
+C:/tools/atomic-api/atomic-api.cmd init --agent codex
 ```
 
-macOS / Linux：
+Linux / macOS：
 
 ```bash
-sh install.sh
+sh /tools/atomic-api/atomic-api.sh init --agent codex
 ```
 
-安装到用户目录，无需管理员权限；安装后打开新终端。安装脚本也接受已构建产物（PowerShell `-Jar <path>`，shell `--jar <path>`），此时无需 Maven。日常使用不需要输入 Java 命令。
+后文 `atomic-api ...` 表示同一入口；免安装时使用上述脚本路径替换命令名。PowerShell 路径含空格时写 `& "C:/my tools/atomic-api/atomic-api.cmd" -h`。工具不改变当前目录，默认处理调用时的业务项目，也支持 `--repo <path>`。详细见 [便携使用说明](PORTABLE.md)。
+
+## 从源码使用或安装（可选）
+
+GitHub 源码 ZIP 不含 JAR。开发者需要 JDK 17、Maven 3.8+，先运行 `mvn -f cli/pom.xml package`，然后直接调用根目录脚本。
+
+如希望日常使用短命令 `atomic-api`，可选择运行 `./install.ps1`（Windows）或 `sh install.sh`（Linux/macOS）并打开新终端；安装脚本也支持已构建 JAR。生成业务源码的语言版本由业务 profile 决定。
 
 ## 项目维护者只配置一次
 
@@ -28,7 +34,7 @@ sh install.sh
 
 配置由熟悉项目的人确定，后续新增操作不需要反复设计目录。不能自动识别时工具会明确提示；com.example 只是虚构示例。init 保留已有文件与定制，不修改 AGENTS.md。
 
-两份完整 skill 随 CLI 打包：通用 `atomic-api-design` 和故障业务 `ipran-fault-api-dev`。前者给固定操作顺序，后者补 DTO、版本、JSON 和错误兼容性规则。
+两份完整 skill 随 CLI 打包：`atomic-api-dev`（Atomic API Dev）和 `app-api-dev`（App API Dev）。前者提供共同工具流程及原子能力开发边界，后者补充 App API 的 DTO、Facade/Handler、转换与兼容性规范；模块和包名来自实际 profile，IPRAN fault 仅是参考场景。CLI 当前严格生成的是契约描述的 Facade/Handler 调用链，原子版本族接入仍需按真实框架人工实现。
 
 ## 代码代理的日常流程
 
@@ -84,11 +90,11 @@ atomic-api verify --repo ../atomic-api-demo --contract ../atomic-api-demo/contra
 
 所有命令默认当前目录，可用 `--repo <path>` 指定。配置、contract、schema、skill 归入 `.atomic-api/`；日志、参数文件和临时产物放 `.atomic-api/work/<operation>/`。
 
-已有 v1 contract 仍可 generate/check，防止破坏存量项目；**verify 拒绝 v1，新增必须使用 new 创建 v2。** init 不覆盖本地旧文件，升级时在临时目录初始化新版本并对照合并定制 profile/skill；主项目升级后要配置 roles。
+已有 v1 contract 仍可 generate/check，防止破坏存量项目；**verify 拒绝 v1，新增必须使用 new 创建 v2。** init 不覆盖本地旧文件，升级时在临时目录初始化新版本并对照合并定制 profile/skill；主项目升级后要配置 roles。0.3.1 将 atomic-api-design 改名为 atomic-api-dev，将 ipran-fault-api-dev 改名为 app-api-dev。已有 skill 不会被删除：对照保留定制、更新代理引用，再手动移除旧目录，避免同时触发两份旧新指令。
 
 ## 文档
 
-- [固定开发 Skill](skills/atomic-api-design/SKILL.md)、[IPRAN 故障 Skill](skills/ipran-fault-api-dev/SKILL.md)
+- [固定开发 Skill](skills/atomic-api-dev/SKILL.md)、[App API 开发 Skill](skills/app-api-dev/SKILL.md)
 - [CLI 与诊断](docs/cli.md)、[框架与角色配置](docs/framework-profile.md)、[Contract](docs/contracts.md)
 - [新规范完整示例](examples/strict-handler.yaml)、[Schema](schemas/api-contract.schema.json)、[设计](docs/design.md)
 

@@ -64,4 +64,4 @@ responseBindings 的 key 是外部响应字段，value 为 业务结果字段名
 
 `fault-response.yaml` 演示公共业务模块中的 ReqDto/RspDto 和 service 同目录的 RequestConverter/ResponseConverter。所有 target FQN 互不相同，不能与生成 DTO/Handler/Builder 冲突。
 
-当前支持可构造且有 setter 的外部对象，或 String 响应。String 必须绑定 message 到业务 String 字段并指定 errorMode=exception/message；工具不猜已有失败返回形式。内部节点 DTO、请求字段回填和 MapStruct 处理按真实项目人工实现。不要修改公开契约来绕过生成器限制。详见 [skill 的能力边界](../skills/atomic-api-design/references/contracts.md)。
+当前支持可构造且有 setter 的外部对象，或 String 响应。String 必须绑定 message 到业务 String 字段并指定 errorMode=exception/message；工具不猜已有失败返回形式。内部节点 DTO、请求字段回填和 MapStruct 处理按真实项目人工实现。不要修改公开契约来绕过生成器限制。详见 [skill 的能力边界](../skills/atomic-api-dev/references/contracts.md)。

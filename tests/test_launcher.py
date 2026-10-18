@@ -4,10 +4,11 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JAR = ROOT / 'cli/target/atomic-api-0.3.0.jar'
+JAR = ROOT / 'cli/target/atomic-api-0.3.1.jar'
 
 
 @unittest.skipIf(os.name == 'nt', 'POSIX entry; Windows runs a PowerShell smoke test')
@@ -94,6 +95,50 @@ class LauncherTests(unittest.TestCase):
             result = subprocess.run([str(home / '.local/bin/atomic-api'), '-h'], env=env,
                                     capture_output=True, text=True)
             self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_extracted_zip_runs_without_installation_and_preserves_cwd(self):
+        if not JAR.is_file():
+            self.skipTest('Build CLI before command integration tests')
+        with tempfile.TemporaryDirectory(prefix="atomic portable '") as tmp:
+            base = Path(tmp)
+            archive = base / 'tool.zip'
+            result = subprocess.run(['python', str(ROOT / 'scripts/package_cli.py'), '--output', str(archive)],
+                                    capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            with zipfile.ZipFile(archive) as package:
+                package.extractall(base / 'unpacked tools')
+            with zipfile.ZipFile(JAR) as jar:
+                self.assertFalse(any(n.startswith('init/skills/atomic-api-design/') or
+                                     n.startswith('init/skills/ipran-fault-api-dev/') for n in jar.namelist()))
+            tool = base / 'unpacked tools/atomic-api'
+            project = base / 'business project'
+            project.mkdir()
+            home = base / 'home'
+            home.mkdir()
+            # Only Java is on PATH; no installer or Maven is available.
+            runtime = base / 'runtime'
+            runtime.mkdir()
+            (runtime / 'java').symlink_to(shutil.which('java'))
+            (runtime / 'dirname').symlink_to(shutil.which('dirname'))
+            (runtime / 'sh').symlink_to('/bin/sh')
+            env = dict(os.environ, HOME=str(home), JAVA_HOME='', PATH=str(runtime))
+            self.assertIsNone(shutil.which('mvn', path=env['PATH']))
+            before = list(home.iterdir())
+            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'init', '--agent', 'codex'],
+                                    cwd=project, env=env, capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertTrue((project / '.agents/skills/atomic-api-dev/SKILL.md').is_file())
+            self.assertTrue((project / '.agents/skills/app-api-dev/SKILL.md').is_file())
+            self.assertFalse((tool / '.atomic-api').exists())
+            self.assertEqual(before, list(home.iterdir()))
+            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'check', '--repo', 'missing directory'],
+                                    cwd=project, env=env, capture_output=True, text=True)
+            self.assertEqual(2, result.returncode)
+            (tool / 'lib/atomic-api/atomic-api.jar').unlink()
+            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), '-h'],
+                                    cwd=project, env=env, capture_output=True, text=True)
+            self.assertEqual(2, result.returncode)
+            self.assertIn('JAR', result.stderr)
 
     def test_installer_refuses_symlink_destination_before_writing(self):
         if not JAR.is_file():

@@ -24,7 +24,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: atomic-api-jar
-          path: cli/target/atomic-api-0.3.0.jar
+          path: cli/target/atomic-api-0.3.1.jar
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -43,5 +43,9 @@ jobs:
           cache-dependency-path: cli/pom.xml
       - shell: cmd
         run: mvn -B -f cli/pom.xml package -Dmaven.test.skip=true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python scripts/package_cli.py
       - shell: powershell
         run: ./scripts/test_windows_cli.ps1

@@ -18,7 +18,7 @@ if [ -z "$jar" ] && [ -f "$tool_root/lib/atomic-api/atomic-api.jar" ]; then
   jar=$tool_root/lib/atomic-api/atomic-api.jar
 elif [ -z "$jar" ]; then
   mvn -q -f "$tool_root/cli/pom.xml" package
-  jar=$tool_root/cli/target/atomic-api-0.3.0.jar
+  jar=$tool_root/cli/target/atomic-api-0.3.1.jar
 fi
 [ -f "$jar" ] || { printf '%s\n' 'Built CLI artifact is missing' >&2; exit 2; }
 case "${SHELL:-}" in

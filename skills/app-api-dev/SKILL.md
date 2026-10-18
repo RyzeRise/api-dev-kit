@@ -1,18 +1,20 @@
 ---
-name: ipran-fault-api-dev
-description: 用固定生成和自动验收流程开发 IPRAN 故障 API，约束公共 DTO 归属、Facade/Handler/Converter 分工、版本和外部契约；处理相关 Maven 构建失败。
+name: app-api-dev
+description: 开发或审查 App API 的公共契约、业务编排和 service 入口，用固定生成和自动验收流程，约束公共 DTO 归属、Facade/Handler/Converter 分工、版本和外部契约；处理相关 Maven 构建失败。
 ---
 
-# IPRAN 故障 API
+# App API Dev
 
-先执行同插件的 [固定开发流程](../atomic-api-design/SKILL.md)。新增使用 `new → generate → 补业务 → verify → 项目编译测试`；不要自由设计目录或以旧 contract/check 代替验收。
+先执行同插件的 [固定开发流程](../atomic-api-dev/SKILL.md)。新增使用 `new → generate → 补业务 → verify → 项目编译测试`；不要自由设计目录或以旧 contract/check 代替验收。
 
-## 本业务必须保留的边界
+模块与包名以实际 profile/roles 和现有业务为准；参考资料中的 IPRAN fault 路径只适用于该业务，不能复制到其他 App 模块。
+
+## App API 必须保留的边界
 
 | 内容 | 放置或行为 |
 |---|---|
-| ReqDto/RspDto、Facade | 业务公共模块 fault.dto / fault.facadeinterface，按已配置 roles 生成，不放 SDK。 |
-| 原子 DTO → 业务 DTO | 故障实现模块的业务 Converter。 |
+| ReqDto/RspDto、Facade | 业务公共模块的 DTO / Facade 目录，按已配置 roles 生成，不放 SDK。 |
+| 原子 DTO → 业务 DTO | 对应 App 实现模块的业务 Converter。 |
 | 业务响应 → REST 模型/String | service 的 ResponseConverter，与 RequestConverter 同目录。 |
 | 单个 Handler | Facade 直接返回 run 结果，不建字段复制 Builder。 |
 | 单响应专属节点 | RspDto 的 public static 内部类，引用次数不等于公共契约共享。 |

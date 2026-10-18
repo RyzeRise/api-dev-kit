@@ -16,7 +16,7 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.3.0\n"
+            "atomic-api 0.3.1\n"
                 + "  atomic-api init [--agent codex|claude|cursor|none]\n"
                 + "  atomic-api new --operation <queryXxx> --business <domain>\n"
                 + "  atomic-api verify --contract <api.yaml> [--format text|json]\n"
@@ -89,7 +89,7 @@ public final class Cli {
                 + " new --operation queryExample --business example。");
         if (options.getOrDefault("--agent", "none").equals("none"))
           out.println(
-              "Skill 已保存到 .atomic-api/skills/atomic-api-design/；自动发现可运行 atomic-api init --agent"
+              "Skill 已保存到 .atomic-api/skills/atomic-api-dev/；自动发现可运行 atomic-api init --agent"
                   + " codex|claude|cursor。");
         return 0;
       }
@@ -164,7 +164,7 @@ public final class Cli {
                           "schemaVersion",
                           2,
                           "toolVersion",
-                          "0.3.0",
+                          "0.3.1",
                           "scope",
                           repo.toString(),
                           "report",

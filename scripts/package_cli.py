@@ -10,12 +10,12 @@ def main():
     parser.add_argument('--output', type=Path, default=Path('dist/atomic-api-cli.zip'))
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    jar = root / 'cli/target/atomic-api-0.3.0.jar'
+    jar = root / 'cli/target/atomic-api-0.3.1.jar'
     if not jar.is_file():
         parser.error('Build CLI first: mvn -f cli/pom.xml package')
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(args.output, 'w', zipfile.ZIP_DEFLATED) as archive:
-        for relative in ['install.sh', 'install.ps1', 'bin/atomic-api', 'bin/atomic-api.cmd', 'bin/atomic-api-launch.ps1']:
+        for relative in ['atomic-api.sh', 'atomic-api.cmd', 'PORTABLE.md', 'install.sh', 'install.ps1', 'bin/atomic-api', 'bin/atomic-api.cmd', 'bin/atomic-api-launch.ps1']:
             archive.write(root / relative, 'atomic-api/' + relative)
         archive.write(jar, 'atomic-api/lib/atomic-api/atomic-api.jar')
     print(str(args.output.resolve()))

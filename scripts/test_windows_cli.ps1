@@ -5,7 +5,23 @@ $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('atomic cli ' + [Guid]::NewGui
 $installDir = Join-Path $testRoot 'installed command'
 $projectDir = Join-Path $testRoot 'business project'
 New-Item -ItemType Directory -Path $projectDir -Force | Out-Null
-& (Join-Path $toolRoot 'install.ps1') -Prefix $installDir -Jar (Join-Path $toolRoot 'cli/target/atomic-api-0.3.0.jar')
+# Exercise the actual download ZIP before registering any global command.
+$portableRoot = Join-Path $testRoot 'portable tools'
+Expand-Archive -LiteralPath (Join-Path $toolRoot 'dist/atomic-api-cli.zip') -DestinationPath $portableRoot
+$portableTool = Join-Path $portableRoot 'atomic-api/atomic-api.cmd'
+Push-Location $projectDir
+try {
+    & $portableTool init --agent codex
+    if ($LASTEXITCODE -ne 0) { throw 'Portable init failed' }
+    if (-not (Test-Path '.agents/skills/atomic-api-dev/SKILL.md')) { throw 'Atomic skill missing' }
+    if (-not (Test-Path '.agents/skills/app-api-dev/SKILL.md')) { throw 'App skill missing' }
+    if (Test-Path (Join-Path $portableRoot 'atomic-api/.atomic-api')) { throw 'Portable command changed working directory' }
+    & $portableTool check --repo 'missing directory'
+    if ($LASTEXITCODE -ne 2) { throw 'Portable argument/exit code changed' }
+} finally {
+    Pop-Location
+}
+& (Join-Path $toolRoot 'install.ps1') -Prefix $installDir -Jar (Join-Path $toolRoot 'cli/target/atomic-api-0.3.1.jar')
 Push-Location $projectDir
 try {
     $helpText = & atomic-api -h
@@ -15,8 +31,8 @@ try {
     & atomic-api init --agent claude
     if ($LASTEXITCODE -ne 0) { throw 'atomic-api init failed' }
     if (-not (Test-Path '.atomic-api/profile.yaml')) { throw 'Project profile missing' }
-    if (-not (Test-Path '.claude/skills/atomic-api-design/references/rules.md')) { throw 'Project Skill missing' }
-    if (-not (Test-Path '.claude/skills/ipran-fault-api-dev/references/verification.md')) { throw 'Fault API Skill missing' }
+    if (-not (Test-Path '.claude/skills/atomic-api-dev/references/rules.md')) { throw 'Project Skill missing' }
+    if (-not (Test-Path '.claude/skills/app-api-dev/references/verification.md')) { throw 'Fault API Skill missing' }
     if (-not (Test-Path '.atomic-api/contracts/example.yaml')) { throw 'Response converter contract missing' }
     [IO.File]::WriteAllText((Join-Path $projectDir '.atomic-api/profile.yaml'), 'user configuration')
     & atomic-api init

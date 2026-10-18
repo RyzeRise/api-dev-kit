@@ -1,3 +1,9 @@
+# 0.3.1：便携运行与技能命名
+
+便携 ZIP 增加根目录 atomic-api.sh / atomic-api.cmd 和 PORTABLE.md，解压后可从业务目录直接调用，无需安装、Maven 或修改 PATH；运行仍需 Java 17+。可选安装方式保持可用。两份 skill 正式命名为 atomic-api-dev / app-api-dev，同步目录、元数据、内置资源及引用；IPRAN fault 路径标注为参考场景，不作为所有 App 的固定目录。init 保留旧文件，升级需合并定制后移除旧 skill。
+
+验证记录：clean verify 通过 100 项 Java 测试；30 项 Python 测试全部通过、无跳过。便携 ZIP 在含空格和单引号的路径下实际解压，从另一业务目录调用，PATH 仅提供 Java 和必要系统 shell 工具且无 Maven；核对 cwd、退出码、HOME 不被写入、新 skill 安装及 JAR 无旧 skill 残留。Windows 同样从实际 ZIP 先测试免安装，再测试可选安装，结果以云端 CI 为准。
+
 # 0.3.0：为能力较弱的代码代理固定路径
 
 新增 roles、new/v2 契约、verify 和逐项 FIX。工具约束位置、实际转换器调用、纯映射范围、Facade 编排、生命周期常见错位、DTO 反向依赖、明显占位与 cause。主 skill 改为短流程，详细资料按问题读取，旧路径降为存量兼容。验证包括逐条故意破坏的源码变体，不能只证明生成后的理想样例。

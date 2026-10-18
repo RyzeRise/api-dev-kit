@@ -1,6 +1,6 @@
 # CLI：固定开发路径
 
-0.3.0 的新增入口是 new，验收入口是 verify。项目维护者完成一次 init/profile/roles 配置后，代码代理只填写业务事实、实现占位并依据 FIX 修复。
+0.3.1 的新增入口是 new，验收入口是 verify。项目维护者完成一次 init/profile/roles 配置后，代码代理只填写业务事实、实现占位并依据 FIX 修复。
 
 ```text
 atomic-api init --agent codex
@@ -9,6 +9,8 @@ atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
 atomic-api generate --contract .atomic-api/contracts/queryCircuit.yaml --apply
 atomic-api verify --contract .atomic-api/contracts/queryCircuit.yaml --format json
 ```
+
+免安装时，将命令名换为便携包内的完整入口路径：Windows `C:/tools/atomic-api/atomic-api.cmd`，Linux/macOS `sh /tools/atomic-api/atomic-api.sh`。Java 17+ 为唯一运行依赖，保留整个解压目录；不需要执行 install。详见 [便携说明](../PORTABLE.md)。
 
 ## new 与生成
 

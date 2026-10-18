@@ -1,0 +1,4 @@
+interface:
+  display_name: "App API Dev"
+  short_description: "开发 App API 的公共契约、Facade 和 Handler，验证转换职责与兼容性"
+  default_prompt: "使用 $app-api-dev 实现或审查 App API，按固定流程验证结构、兼容性和模块构建。"

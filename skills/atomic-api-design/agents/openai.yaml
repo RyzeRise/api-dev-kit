@@ -1,4 +1,0 @@
-interface:
-  display_name: "按规范开发 Java API"
-  short_description: "固定生成结构，用自动验收反馈指导修复，再验证业务行为"
-  default_prompt: "使用 $atomic-api-design 按 new、generate、verify 的固定流程开发 API。"
