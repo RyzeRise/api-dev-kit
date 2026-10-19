@@ -10,7 +10,7 @@ done
 tool_home=$(CDPATH= cd -- "$(dirname -- "$entry")" && pwd)
 jar=${ATOMIC_API_JAR:-"$tool_home/lib/atomic-api/atomic-api.jar"}
 if [ ! -f "$jar" ] && [ -z "${ATOMIC_API_JAR:-}" ]; then
-  jar=$tool_home/cli/target/atomic-api-0.7.1.jar
+  jar=$tool_home/cli/target/atomic-api-0.7.2.jar
 fi
 if [ ! -f "$jar" ]; then
   printf '%s\n' 'atomic-api 缺少配套 JAR。请使用完整便携包，或先构建源码；无需运行安装脚本。' >&2

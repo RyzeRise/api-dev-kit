@@ -63,3 +63,7 @@ generate 将待办放在 `.atomic-api/work/<layer>-<operation>/tests/<Operation>
 
 工作区待办不自动接入 Maven；check/verify 和编译成功均不能证明测试执行。定制待办受冲突保护，后续直接增量开发。
 所有工具回归使用合成框架，只证明机制，不代表私有业务集成；无法确认的框架/命令应交由能读取源码的会话核对。
+
+### 已执行的测试接入示例
+
+工具仓已有 `AppTestPlanTest`，使用本仓实际 JUnit 5/Surefire，完成过四个占位失败→四个调用/断言通过的接入。确切命令、报告与范围见 [校准记录](l2evpn-example.md#testplan-接入记录)。它不是私有业务框架或 L2EVPN 成功案例，不把 JUnit 5 强加给业务模块。

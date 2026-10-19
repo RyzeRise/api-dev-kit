@@ -13,7 +13,7 @@
 | 方法不存在，但应复用已有 Facade/Delegate 等 | 只增加所需成员及缺失文件，不另建一套类 |
 | 确需一套新骨架，命名与框架兼容 | 通过适配检查表后走新增生成流程 |
 
-复用已有类时可先核对新操作草稿与 dry-run；仅当目标与原类一致、计划只增所需成员且保留已有业务体时 apply，否则手工增量。
+复用已有类时可先核对新操作草稿与 dry-run；仅当目标与原类一致、计划只增所需成员且保留已有业务体时 apply，否则手工增量。已验证的复用范围和真实限制见 [校准记录](l2evpn-example.md#本轮工具源码校准与验证)。
 
 写下真实请求/响应字段、默认值、异常以及调用链：
 
@@ -49,21 +49,11 @@ sh .atomic-api/tool/atomic-api.sh new --layer app --operation queryL2evpnEvplNod
 | responseBindings | 外部响应字段名 → 业务响应字段名，只填字段名，不写 Java 表达式 |
 | errorMode | 外部响应为 String 时选择 exception/message，遵守历史契约 |
 
-字段列表的 YAML 形状如下（只是填写格式，neId 的真实类型仍需核对）：
+字段列表必须从当前请求/响应 DTO 和调用者填写：name 是真实字段，type 是完整 Java 类型，description 写中文含义，required/diagnostic 按真实校验和安全约定选择。L2EVPN 的 neId 类型尚未在本工具仓核实，不在此示例中预填 String 或 Long。不要把格式示例当作业务契约。
 
-```yaml
-fields:
-  - name: neId
-    type: java.lang.String
-    description: 网元标识
-    required: true
-    diagnostic: false
-```
-
-将它填在草稿相应的 models.request 下；响应在 models.response 下分别填写。
 String 外部响应的 responseBindings 只有保留键 message，其值为业务响应字段名；若字段也叫 message，则写 `message: message`。
 
-class/sourceRoot、target、steps 按 profile 固定；泛型逗号类型使用 YAML 引号。
+class/sourceRoot、target、steps 按真实源码及 profile 的角色约束填写；复用已有类时显式核对 target，不能只沿用默认名称。泛型逗号类型使用 YAML 引号。
 
 ```text
 sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --dry-run

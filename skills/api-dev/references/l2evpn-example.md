@@ -78,3 +78,66 @@ Atomic 首支持版本不在本资料中，不能把命令里的 R26C10 当事�
 6. 有兼容性变更时，ObjectMapper 设置、消费者/JSON 基线、历史默认值与首次支持版本证据。
 
 这些资料未核对前，只能报告通用模板/检查器验证，不能报告 L2EVPN 业务集成通过。
+
+## 本轮工具源码校准与验证
+
+本节基于工具仓 `6d86d0a` 的源码及随后新增的回归测试。当前会话没有私有 L2EVPN 业务源码、依赖 JAR、POM 或历史测试快照；不能列出它与真实签名的确定差异，更不能确认本例字段或首次支持版本。
+
+### 源码依据与需要调整的指引
+
+| 核对项 | 已读取的工具源码 | 结论及最小边界 |
+|---|---|---|
+| Handler/Context | app/handler.java.tpl、Generator.validateFramework、Fixtures.framework | 模板固定双泛型、嵌套 BasicApiContext 和三阶段；预检只查方法名，不能证明私有基类的签名/可见性兼容 |
+| 异常/组件管理器 | app/delegate.method.java.tpl、Generator.validateFramework | 模板直接用 String 构造器、getErrMsg、initCause、getFacadeImpl(Class)；自动预检未完整证明这些签名，需真实编译/运行 |
+| 日志 | LoggingSupport.validate/decorate | 自动日志支持静态工厂(Class)→配置日志类型，以及无参 entry/ret；不能据此断言私有日志工厂满足要求 |
+| Atomic 注册/Latest | AtomicContract、AtomicTool.plan/check、atomic/interface/implementation/latest 模板 | 只验证契约声明的注解和继承形状；不自动证明真实管理器发现、最新支持或历史不支持 |
+| App 复用已有类 | Contract.validate、Conventions.location、Generator.target/addMethod、IncrementalAppTest | 契约 target 能指向已有类名；包必须符合各角色 packagePrefix + business、sourceRoot 等约束。新方法兼容时可增量插入；同签名旧方法业务体不同则冲突保护，不覆盖 |
+| Atomic 补支持版本 | TemplateWorkflowTest.addingVersionToImplementedAtomicDoesNotOverwriteHistoryOrWritePartialFiles | 历史实现已有业务体时，全量 generate 拒绝；已验证手工只添版本、更新 class Latest、扩充 releases 后可编译，旧实现不变，新版本占位仍被阻塞 |
+
+本轮把“固定默认类名必然无法复用”修正为“默认命名与实际契约 target 分开；角色包结构和成员兼容性仍有限制”。并删除 App 字段格式示例中未证实的 neId:String，避免它被当成 L2EVPN 契约。
+
+### TestPlan 接入记录
+
+使用本工具仓真实依赖：`tools/cli/pom.xml` 的 JUnit Jupiter 5.11.4、Maven Surefire 3.5.2；源文件为 `tools/cli/src/test/java/dev/atomic/AppTestPlanTest.java`。它由 App 待办的四类场景接入 @Test，去掉 main/static，先保留失败体，再补调用和断言。
+
+本次执行环境的实际命令如下，红阶段与绿阶段相同：
+
+```text
+python /workspace/scratch/649129bc1ddd/build-tools/mvn_env.py -B -f tools/cli/pom.xml -Dtest=AppTestPlanTest test
+```
+
+该环境已有适配器仅用于调用 Maven；通常维护环境的对应命令为：
+
+```text
+mvn -B -f tools/cli/pom.xml -Dtest=AppTestPlanTest test
+```
+
+| 阶段 | 退出码 | Tests | Failures | Errors | Skipped | 证明 |
+|---|---:|---:|---:|---:|---:|---|
+| 红：四个 AssertionError 占位 | 1 | 4 | 4 | 0 | 0 | Surefire 确实发现用例；每项因 TEST_IMPLEMENTATION_REQUIRED 失败 |
+| 绿：替换为实际调用和断言 | 0 | 4 | 0 | 0 | 0 | 生成代码在合成框架中可编译并被调用，不是零用例或跳过 |
+
+绿阶段实际断言：
+
+- legalRequestUsesCorrectAtomicAndStages：运行生成 Handler.run，断言返回字段和底层调用次数。
+- invalidInputDoesNotCallAtomic：null/空/空白参数失败，底层调用次数为 0。
+- conversionPreservesMappedFieldAndRejectsNull：调用生成的响应 Converter，断言映射值和 null 响应异常。名称有意缩小，不宣称覆盖尚未测试的集合顺序、全部默认值或 wire。
+- eachBoundaryFailurePreservesCause：在合成夹具中分别制造请求转换、Facade、响应转换失败，真实调用生成 Delegate，断言外部异常、每个阶段对应的内部 cause 消息及包装消息保留；同时断言请求转换失败不调用 Facade，后两种失败确实调用一次 Facade。
+
+用例内编译运行的是本仓生成的 Java 类，底层/框架来自显式合成夹具，不是私有 Atomic 版本或真实注册容器。测试报告默认输出在 `tools/cli/target/surefire-reports/TEST-dev.atomic.AppTestPlanTest.xml` 及同名文本报告；每次运行可能覆盖，应在验证时分别保存红/绿报告，不能从最终绿文件反推红阶段。
+
+增量路径实际命令（本环境同样通过上述适配器调用）：
+
+```text
+mvn -B -f tools/cli/pom.xml -Dtest=IncrementalAppTest,TemplateWorkflowTest test
+```
+
+结果：退出 0；5 个用例，0 failure/error/skip。其中包含旧 App 方法不变、新操作占位被阻塞，以及历史 Atomic 不覆盖、手工补版本的回归。
+
+### 未验证项：不得转写为业务结论
+
+- L2EVPN Handler/Context、异常、管理器、日志工厂、注册/Latest 的真实签名与当前分支行为。
+- 查询/修改字段类型、必填条件、写入本端还是远端、节点八字段以及 null/空集合、顺序、默认值和旧错误契约。
+- 私有业务测试框架版本、TestPlan 在实际业务模块的发现和执行、真实版本选择、REST/JSON 基线及项目 Reactor。
+
+要完成这些项，需提供前节列出的相关源码/签名与同模块一个已执行测试及 POM。没有这些输入时，本轮只能报告“工具框架测试接入和合成回归已验证”，不能声称“L2EVPN 业务集成通过”。升级已安装文件仍须比较合并定制；init 不覆盖旧文件。

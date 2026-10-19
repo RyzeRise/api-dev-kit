@@ -19,6 +19,20 @@
 信息缺失就列出具体文件/签名；确定不兼容则保留真实框架，走手工增量或交维护者适配工具。
 全部已确认才生成；日志若须手工补齐，交付前单独核对。dry-run 成功不是完整签名兼容证明，最终仍须真实编译。
 
+## 自动预检实际证明到哪里
+
+以下依据本工具源码，不是对私有 L2EVPN 签名的确认：
+
+| 清单项 | 自动预检当前能力 | 仍需真实源码/编译证明 |
+|---|---|---|
+| Handler/Context | Generator.validateFramework 解析基类并查四个生命周期方法名 | 泛型个数、参数/返回、可见性、throws、BasicApiContext 是否存在/可继承；同名不能证明兼容 |
+| 异常 | 解析内外异常类型，查 getErrMsg 方法名 | String 构造器、getErrMsg 返回类型、checked 异常关系与实际 cause 行为 |
+| 组件管理器 | 解析配置类型；模板直接调用 getFacadeImpl(Class) | 方法完整泛型签名及运行时注册；解析类不代表方法正确 |
+| 日志 | LoggingSupport.validate 检查工厂静态/Class 参数/返回类型及无参 entry/ret | 真实工厂是否采用此签名、可访问性、日志重载/载荷与运行效果 |
+| Atomic 注册/Latest | AtomicTool 校验契约注解、已配置继承关系 | 实际首次支持版本、注册器发现、管理器选择、历史不支持行为 |
+
+不要把“清单已写出要求”理解成“工具已自动证明全部要求”。本轮源码范围与红绿测试结果见 [校准记录](l2evpn-example.md#本轮工具源码校准与验证)。
+
 ## App profile
 
 本节只在首次接入或框架变化时使用。读取 `.atomic-api/profile.yaml` 的现有完整结构并修改真实值；没有配置时先运行 init。不要手工只建下面几行导致缺字段。
@@ -44,7 +58,7 @@
 | requestConverter | service 模块的请求 Converter |
 | responseConverter | service 模块的响应 Converter |
 
-每个 role 都写真实包前缀与模块源码根目录；layout 配置相应 packagePrefix/sourceRoot。磁盘目录前缀与 package 不一致时用 directoryPrefix，不批量搬迁历史源码。这里只配置归属，不会改变生成器固定类名，也不能单靠正确 roles 消除已有命名或复杂模型的模板限制。
+每个 role 都写真实包前缀与模块源码根目录；layout 配置相应 packagePrefix/sourceRoot。磁盘目录前缀与 package 不一致时用 directoryPrefix，不批量搬迁历史源码。roles 配置归属；new 采用默认类名，但 App 契约 target 可以指向真实已有 Facade/实现/Delegate/Converter，并非强制它们采用默认简单类名。Conventions.location 仍要求各角色 package 等于该角色 packagePrefix + business、sourceRoot 匹配；两个 Converter 还必须同包，DTO 后缀遵守 ReqDto/RspDto。现有包结构不符合这些条件，或存在复杂内部节点/回填时，不能仅改 roles 假装适配。
 
 例如 request 的 sourceRoot 从当前公共 DTO 所在模块截到 src/main/java，packagePrefix 从其 package 声明归纳；不要从文件系统目录猜 package。targetJava 与业务编译版本一致。facadeDefault 按既有默认实现选 throw 或 return-null；已有禁用注册还需核对 disabledFacade.configuration/mapField。
 

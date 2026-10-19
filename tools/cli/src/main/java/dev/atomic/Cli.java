@@ -16,7 +16,7 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.7.1\n"
+            "atomic-api 0.7.2\n"
                 + "  atomic-api rules [--layer app|atomic] [--format text|json]\n"
                 + "  atomic-api init [--repo <path>]\n"
                 + "  atomic-api new --layer app|atomic --operation <operation> --business <domain>"
@@ -209,7 +209,7 @@ public final class Cli {
                           "schemaVersion",
                           3,
                           "toolVersion",
-                          "0.7.1",
+                          "0.7.2",
                           "layer",
                           "app",
                           "scope",
