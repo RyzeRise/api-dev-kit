@@ -25,6 +25,7 @@ description: 用于本项目 Java API 的新增、修改、支持版本扩展和
 ## 2. 开始开发
 
 在业务仓库根目录读 AGENTS.md（若有）、git status、相关接口与测试，向用户简述入口、复用能力、拟改文件和具体缺失资料。
+先划分 MR 边界：只要本次需要修改 api-atomic（包括新增能力、修改已有方法、补版本及相关原子公共契约），必须先单独提交 Atomic MR；不能与 App 改动混入同一 MR，也不能只拆 commit 代替拆 MR。
 检查工具：Linux/macOS 执行 `sh .atomic-api/tool/atomic-api.sh -h`；Windows PowerShell 执行 `& ".atomic-api/tool/atomic-api.cmd" -h`。
 工具只需 Java 17+；业务编译 JDK 沿用项目配置。App 用 `.atomic-api/profile.yaml`，Atomic 用 `.atomic-api/atomic-profile.yaml`。
 生成前逐项核对 [适配检查表](references/configuration.md#生成前适配检查表)；首次配置与迁移也在该文档，不将 com.example 草稿当真实框架。
@@ -53,5 +54,5 @@ description: 用于本项目 Java API 的新增、修改、支持版本扩展和
 | REVIEW_REQUIRED | 用实际源码、历史基线和运行测试逐项提供证据 |
 | 退出 0/STRUCTURE_READY | 自动结构无阻塞，仍需编译、业务测试和待审项证据 |
 
-只交任务范围，按已有授权提交推送，不自动部署或操作网元。Atomic/App 分别规划提交和 MR；App 依赖新 Atomic 时先合 Atomic，再更新 App 基线，明确豁免不追溯拆分。
+只交任务范围，按已有授权提交推送，不自动部署或操作网元。Atomic MR 只包含原子接口/DTO、版本实现、底层封装及必要的测试和 Maven 接线；App 的 Facade、Handler、Delegate、业务 DTO、Converter 和工具接入另开 MR。先提交 Atomic MR，App MR 关联其依赖；依赖 Atomic 改动时先合入 Atomic，再基于更新后的主线提交或更新 App MR，核对 App 差异不夹带 Atomic 改动。即使只修改 Atomic，也单独提交 Atomic MR。无远端提交权限时准备独立分支、提交和 MR 描述并报告待提交，不声称 MR 已创建。仅保留用户已明确豁免的既有 MR，不追溯改写其历史。
 逐条规范、检查器实现、生成支持及覆盖边界见 [规范对照](references/rules.md)，无需开发时逐行阅读。

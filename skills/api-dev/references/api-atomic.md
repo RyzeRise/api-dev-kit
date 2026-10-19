@@ -2,6 +2,7 @@
 
 共用规范与完成条件见 [入口](../SKILL.md)，模板与替换项见 [Atomic 模板](templates.md#atomic)，首次配置见 [配置手册](configuration.md)。
 本路线管理公共接口/DTO/Latest、版本实现与底层调用封装，不生成 App 编排类。
+**交付顺序：任何 api-atomic 修改都先单独提交 Atomic MR，包括修改既有方法和补支持版本；与 App 分支/MR 分开，不能仅拆 commit。** 具体范围和依赖合入顺序按入口的完成条件执行。
 
 ## 1. 查真实能力和版本证据
 

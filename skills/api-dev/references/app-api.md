@@ -21,7 +21,7 @@
 
 `Delegate（转请求 → 调 Facade → 转响应） → Facade → Handler.run（pre → invoke → post） → Atomic`
 
-没有真实底层能力时转 Atomic 手册；不要按业务缩写猜开发层。
+没有真实底层能力或需要修改 api-atomic 时转 Atomic 手册，先单独提交 Atomic MR；App 改动另开 MR 并关联该依赖，先合 Atomic，再更新 App 的主线基线。已有 Atomic 能力足够时只提交 App MR，不为流程补造 Atomic 改动；不要按业务缩写猜开发层。
 
 ## 2. 选择实施路径
 
