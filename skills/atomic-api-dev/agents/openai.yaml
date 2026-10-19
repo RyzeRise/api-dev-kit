@@ -1,4 +1,0 @@
-interface:
-  display_name: "Atomic API Dev"
-  short_description: "开发原子能力并按固定工具流程检查 API 结构、版本接线与兼容性"
-  default_prompt: "使用 $atomic-api-dev 开发或接入原子能力，按项目配置执行生成、检查与编译测试。"

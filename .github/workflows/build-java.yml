@@ -14,22 +14,23 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-          cache-dependency-path: cli/pom.xml
-      - run: mvn -B -f cli/pom.xml verify
+          cache-dependency-path: tools/cli/pom.xml
+      - run: mvn -B -f tools/cli/pom.xml verify
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m unittest discover -s tests -p test_launcher.py -v
-      - run: python scripts/package_cli.py
+      - run: python -m unittest discover -s tools/tests -v
+      - run: git diff --check
+      - run: python tools/package.py
       - uses: actions/upload-artifact@v4
         with:
           name: atomic-api-jar
-          path: cli/target/atomic-api-0.4.0.jar
+          path: tools/cli/target/atomic-api-0.5.0.jar
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: atomic-api-cli
-          path: dist/atomic-api-cli.zip
+          path: tools/dist/atomic-api-cli.zip
           if-no-files-found: error
   windows-command:
     runs-on: windows-latest
@@ -40,12 +41,12 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
-          cache-dependency-path: cli/pom.xml
+          cache-dependency-path: tools/cli/pom.xml
       - shell: cmd
-        run: mvn -B -f cli/pom.xml package -Dmaven.test.skip=true
+        run: mvn -B -f tools/cli/pom.xml package -Dmaven.test.skip=true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python scripts/package_cli.py
+      - run: python tools/package.py
       - shell: powershell
-        run: ./scripts/test_windows_cli.ps1
+        run: ./tools/tests/windows.ps1
