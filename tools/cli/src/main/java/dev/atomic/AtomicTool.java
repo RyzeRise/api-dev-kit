@@ -69,7 +69,7 @@ final class AtomicTool {
             "通过真实版本选择、Latest、成功/非法输入/底层失败及旧版本不支持测试后交付。",
             "tests",
             "REVIEW",
-            "NOT_GENERATED",
+            "FAILING_TEST_PLAN",
             "报告测试未执行；源码存在不代表已运行，必须附实际命令和结果。"));
   }
 
@@ -77,7 +77,7 @@ final class AtomicTool {
       String id, String text, String method, String coverage, String generator, String limit) {
     return RuleCatalog.r(
         id,
-        "api-dev/references/api-atomic.md",
+        "api-dev/references/rules.md",
         text,
         "AtomicTool." + method,
         coverage,
@@ -250,81 +250,37 @@ final class AtomicTool {
     var output = new LinkedHashMap<String, String>();
     output.put(c.models().request().className(), model(c.models().request()));
     output.put(c.models().response().className(), model(c.models().response()));
-    String signature =
-        c.models().response().className()
-            + " "
-            + c.operation()
-            + "("
-            + c.models().request().className()
-            + " request)";
-    output.put(
-        c.apiInterface(),
-        "package "
-            + Contract.packageName(c.apiInterface())
-            + ";\n"
-            + String.join("\n", p.interfaceAnnotations())
-            + "\npublic interface "
-            + Contract.simple(c.apiInterface())
-            + (p.baseInterfaces().isEmpty()
-                ? ""
-                : " extends " + String.join(",", p.baseInterfaces()))
-            + " { /** 原子请求与响应契约；版本支持由实际框架选择。 */ "
-            + signature
-            + "; }");
+    output.put(c.apiInterface(), Templates.render("atomic/interface.java.tpl",
+        "packageName", Contract.packageName(c.apiInterface()),
+        "annotations", String.join("\n", p.interfaceAnnotations()),
+        "className", Contract.simple(c.apiInterface()),
+        "extendsClause", p.baseInterfaces().isEmpty() ? "" : " extends " + String.join(",", p.baseInterfaces()),
+        "requestType", c.models().request().className(),
+        "responseType", c.models().response().className(), "operation", c.operation()));
     for (var v : c.releases()) {
-      String iface = p.latestKind().equals("interface") ? c.latest() : c.apiInterface();
-      String source =
-          "package "
-              + Contract.packageName(v.implementation())
-              + ";\n"
-              + String.join("\n", v.annotations())
-              + "\npublic class "
-              + Contract.simple(v.implementation())
-              + " implements "
-              + iface
-              + " { /** 校验请求后调用真实底层能力；未接通时明确失败。 */ @Override public "
-              + signature
-              + " { ";
-      source +=
-          "if(request==null) throw new IllegalArgumentException(\"Request must not be null\");";
+      StringBuilder required = new StringBuilder();
       for (var f : c.models().request().fields())
-        if (f.required())
-          source +=
-              "if(request.get"
-                  + Contract.cap(f.name())
-                  + "()==null) throw new IllegalArgumentException(\"Required field missing: "
-                  + f.name()
-                  + "\");";
-      source +=
-          "throw new UnsupportedOperationException(\""
-              + MARKER
-              + ": implement "
-              + c.operation()
-              + " for "
-              + v.id()
-              + "\"); }}";
+        if (f.required()) required.append(Templates.render("atomic/required-field.java.tpl",
+            "capitalName", Contract.cap(f.name()), "fieldName", f.name()));
+      String source = Templates.render("atomic/implementation.java.tpl",
+          "packageName", Contract.packageName(v.implementation()),
+          "annotations", String.join("\n", v.annotations()),
+          "className", Contract.simple(v.implementation()),
+          "interfaceType", p.latestKind().equals("interface") ? c.latest() : c.apiInterface(),
+          "requestType", c.models().request().className(),
+          "responseType", c.models().response().className(), "operation", c.operation(),
+          "requiredFields", required.toString(), "apiVersion", v.id());
       var unit = StaticJavaParser.parse(source);
       var type = unit.getClassByName(Contract.simple(v.implementation())).orElseThrow();
       LoggingSupport.decorate(type, type.getMethodsByName(c.operation()).get(0), p.paths());
       output.put(v.implementation(), unit.toString());
     }
-    String parent =
-        p.latestKind().equals("interface")
-            ? c.apiInterface()
-            : c.releases().get(c.releases().size() - 1).implementation();
-    output.put(
-        c.latest(),
-        "package "
-            + Contract.packageName(c.latest())
-            + ";\n"
-            + String.join("\n", c.latestAnnotations())
-            + "\n/** Latest 连接契约声明的最新支持类型；版本证据仍需审查。 */ public "
-            + p.latestKind()
-            + " "
-            + Contract.simple(c.latest())
-            + " extends "
-            + parent
-            + " {}");
+    String parent = p.latestKind().equals("interface") ? c.apiInterface()
+        : c.releases().get(c.releases().size() - 1).implementation();
+    output.put(c.latest(), Templates.render("atomic/latest.java.tpl",
+        "packageName", Contract.packageName(c.latest()),
+        "annotations", String.join("\n", c.latestAnnotations()), "latestKind", p.latestKind(),
+        "className", Contract.simple(c.latest()), "parentType", parent));
     var changes = new ArrayList<GenerationPlan.Change>();
     for (var entry : output.entrySet()) {
       String fqn = entry.getKey();
@@ -338,6 +294,7 @@ final class AtomicTool {
             "CONFLICT: existing atomic source differs: " + target);
       } else changes.add(new GenerationPlan.Change(target, null, after));
     }
+    Templates.testPlan(index.root(), "atomic", c.operation(), c.models(), changes);
     return new GenerationPlan(index.root(), changes, index.originals());
   }
 
@@ -350,37 +307,8 @@ final class AtomicTool {
   }
 
   private static String model(Contract.Model m) {
-    StringBuilder s =
-        new StringBuilder(
-            "package "
-                + Contract.packageName(m.className())
-                + ";\n/** 原子能力公共数据契约。 */ public class "
-                + Contract.simple(m.className())
-                + " {");
-    for (var f : m.fields()) {
-      // Description is data, never executable Java or a closing comment.
-      s.append("\n// ")
-          .append(f.description().replace('\n', ' ').replace('\r', ' ').replace('\\', ' '))
-          .append("\nprivate ")
-          .append(f.type())
-          .append(' ')
-          .append(f.name())
-          .append(';');
-      s.append("public ")
-          .append(f.type())
-          .append(" get")
-          .append(Contract.cap(f.name()))
-          .append("(){return ")
-          .append(f.name())
-          .append(";} public void set")
-          .append(Contract.cap(f.name()))
-          .append('(')
-          .append(f.type())
-          .append(" value){this.")
-          .append(f.name())
-          .append("=value;}");
-    }
-    return s + "}";
+    return Templates.render("common/unit.java.tpl", "packageName", Contract.packageName(m.className()),
+        "declaration", Templates.model(m));
   }
 
   private static List<String> allAnnotations(AtomicContract c, AtomicContract.Config p) {
@@ -472,7 +400,7 @@ final class AtomicTool {
             file,
             0,
             message,
-            "按 api-dev/references/api-atomic.md 的 "
+            "按 api-dev/references/rules.md 的 "
                 + rule
                 + " 修复并重跑 --layer atomic；不能修改规则或删除占位伪装完成。"));
   }

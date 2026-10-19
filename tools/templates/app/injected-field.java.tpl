@@ -1,0 +1,1 @@
+@{{injectionAnnotation}} private {{fieldType}} {{fieldName}};

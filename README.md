@@ -2,7 +2,7 @@
 
 让 Code Agent 按项目规范生成、检查 Java API。只需向 Agent 描述任务并指定 skill 文件；命名、目录和部分分层约束由工具执行。
 
-首次使用请先读 [QUICKSTART.md](QUICKSTART.md)：以本项目 L2EVPN 查询 EVPL 节点、修改 EVPL Service ID 为例，说明接入、任务提示、生成边界和验收。
+首次使用请先读 [QUICKSTART.md](QUICKSTART.md)：以 L2EVPN 查询 EVPL 节点、修改 EVPL Service ID 为例，说明接入、任务提示、生成边界和验收。
 
 ## 仓库结构
 
@@ -29,7 +29,7 @@ Windows PowerShell：
 & ".atomic-api/tool/atomic-api.cmd" init
 ```
 
-只需 Java 17+，无需全局安装、Maven、Python、管理员权限或修改 PATH。init 只生成 `.atomic-api/` 内的配置、契约示例和统一 api-dev skill（含两份路线文档），保留已有文件。维护者核对 profile 后，对支持读取文件及执行命令的任意 Agent 提示：
+只需 Java 17+，无需全局安装、Maven、Python、管理员权限或修改 PATH。init 只生成 `.atomic-api/` 内的配置、契约示例和统一 api-dev skill（含路线、案例、规范对照与配置文档）和可阅读模板，保留已有文件。维护者核对 profile 后，对支持读取文件及执行命令的任意 Agent 提示：
 
 > 请读取 `.atomic-api/skills/api-dev/SKILL.md`，开发 L2EVPN 的 EVPL 节点查询接入，先读已有实现并复用真实底层能力；已经存在则核对并增量修改。
 
@@ -53,7 +53,7 @@ Atomic 配置的 roles 为 apiInterface/request/response/implementation/latest�
 
 ## 规范、检查器、生成器逐条对应
 
-人类先读 `skills/api-dev/SKILL.md` 的共用规范和分流表，再读对应 references 文档。App 保留 N01～N24，Atomic 使用 A01～A08；编号分别对应真实检查代码、生成支持和未覆盖项，不能用另一层的结果验收。App 清单在 RuleCatalog.java，Atomic 清单在 AtomicTool.java；测试要求文档与代码一致。
+人类先读 [Skill 入口](skills/api-dev/SKILL.md) 的共用规范和分流表，再读对应路线文档；[逐条规范对照](skills/api-dev/references/rules.md)单独供审查。App 保留 N01～N24，Atomic 使用 A01～A08；编号分别对应真实检查代码、生成支持和未覆盖项，不能用另一层的结果验收。App 清单在 RuleCatalog.java，Atomic 清单在 AtomicTool.java；测试要求文档与代码一致。
 
 ```bash
 sh .atomic-api/tool/atomic-api.sh rules --layer app
@@ -93,7 +93,15 @@ App 工具检查角色位置、转换器实际调用和纯映射范围、Facade 
 
 verify 退出 0/STRUCTURE_READY 只表示覆盖范围内结构可接受，业务交付还须有实际项目编译和定向测试。退出 1 表示违规/占位，2 表示配置或解析不完整；生成冲突也会阻塞。CI 可执行同一 verify 命令作为门槛。
 
-仅需骨架或缺底层资料时保留占位并报告 SCAFFOLD；新生成的骨架 verify 失败是预期行为。只读旧接口用 check；v1 契约只保留存量兼容，不能替代新增 v2 的 verify。嵌套 DTO、复杂映射、版本注册运行及 JSON 语义仍需真实框架资料和人工验证，不能改外部契约迎合工具。
+仅需骨架或缺底层资料时保留占位并报告 SCAFFOLD；新生成的骨架 verify 失败是预期行为。App 只读旧接口可用 check，App v1 只保留存量兼容，不能替代新增 v2 的 verify；Atomic check/verify 均须 Atomic v1 真实契约。嵌套 DTO、复杂映射、版本注册运行及 JSON 语义仍需真实框架资料和人工验证，不能改外部契约迎合工具。
+
+## 实际模板与增量开发
+
+两套实际模板位于 `tools/templates/atomic/`、`tools/templates/app/`，DTO 共用 `common/`。
+它们由 AtomicTool/Generator 读取并装配，init 提供 `.atomic-api/templates/` 阅读副本；[模板说明](skills/api-dev/references/templates.md)列出替换项和代码对应关系。
+生成计划附带明确失败的业务测试待办，不假定项目 JUnit 版本；迁入真实测试目录、补调用和断言后才能验收。
+Atomic 全量生成不支持覆盖历史真实实现，补版本采用[只新增版本的增量路线](skills/api-dev/references/api-atomic.md#4-为已有能力补一个支持版本)。
+[L2EVPN 案例](skills/api-dev/references/l2evpn-example.md)是待私有源码校准的上下文线索，不是权威源码快照；具体待核对文件列在案例末尾。
 
 ## 工具维护与试用
 

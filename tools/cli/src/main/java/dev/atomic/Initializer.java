@@ -55,12 +55,21 @@ final class Initializer {
         List.of(
             "api-dev/SKILL.md",
             "api-dev/references/api-atomic.md",
-            "api-dev/references/app-api.md")) {
+            "api-dev/references/app-api.md",
+            "api-dev/references/rules.md",
+            "api-dev/references/templates.md",
+            "api-dev/references/configuration.md",
+            "api-dev/references/l2evpn-example.md")) {
       Contract.require(
           !file.contains("..") && !file.startsWith("/"), "Unsafe skill asset: " + file);
       String text = resource("/init/skills/" + file);
       assets.put(".atomic-api/skills/" + file, text);
     }
+    for (String file : Templates.files()) {
+      Contract.require(!file.contains("..") && !file.startsWith("/"), "Unsafe template asset");
+      assets.put(".atomic-api/templates/" + file, Templates.resource(file));
+    }
+    assets.put(".atomic-api/templates/manifest.txt", Templates.resource("manifest.txt"));
     List<GenerationPlan.Change> changes = new ArrayList<>();
     List<String> messages = new ArrayList<>();
     for (var asset : assets.entrySet()) {

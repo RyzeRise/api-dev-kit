@@ -69,6 +69,7 @@ class CliTest {
               "atomic-profile.yaml",
               "contracts",
               "schemas",
+              "templates",
               "skills",
               "work"),
           files.map(p -> p.getFileName().toString()).collect(java.util.stream.Collectors.toSet()));

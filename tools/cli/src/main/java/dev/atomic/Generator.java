@@ -70,6 +70,7 @@ public final class Generator {
       if (!Objects.equals(old, text))
         changes.add(new GenerationPlan.Change(entry.getKey(), old, text));
     }
+    Templates.testPlan(index.root(), "app", c.operation(), c.models(), changes);
     return new GenerationPlan(index.root(), List.copyOf(changes), Map.copyOf(index.originals()));
   }
 
@@ -150,15 +151,15 @@ public final class Generator {
       CompilationUnit cu = edited.get(path);
       if (cu == null) {
         Contract.require(!Files.exists(path), "Unindexed existing source: " + path);
-        cu = new CompilationUnit(fqn.substring(0, fqn.lastIndexOf('.')));
+        cu = StaticJavaParser.parse(Templates.render("common/type.java.tpl",
+            "packageName", Contract.packageName(fqn), "kind", iface ? "interface" : "class",
+            "className", Contract.simple(fqn)));
         edited.put(path, cu);
         before.put(path, null);
       }
-      var found = cu.getClassByName(Contract.simple(fqn));
-      if (found.isPresent()) return found.get();
-      return iface
-          ? cu.addInterface(Contract.simple(fqn)).setPublic(true)
-          : cu.addClass(Contract.simple(fqn)).setPublic(true);
+      return (iface ? cu.getInterfaceByName(Contract.simple(fqn))
+          : cu.getClassByName(Contract.simple(fqn)))
+          .orElseThrow(() -> new IllegalArgumentException("Template type missing: " + fqn));
     } catch (Exception e) {
       throw new IllegalArgumentException(e.getMessage(), e);
     }
@@ -170,7 +171,8 @@ public final class Generator {
             ? newPath(fqn, root)
             : GenerationPlan.safe(index.root(), index.path(index.type(fqn)));
     var generated =
-        StaticJavaParser.parse("package " + fqn.substring(0, fqn.lastIndexOf('.')) + ";\n" + code);
+        StaticJavaParser.parse(Templates.render("common/unit.java.tpl",
+            "packageName", Contract.packageName(fqn), "declaration", code));
     var generatedOwner = generated.getTypes().get(0).asClassOrInterfaceDeclaration();
     if (!Set.of(contract.models().request().className(), contract.models().response().className())
         .contains(fqn))
@@ -339,7 +341,9 @@ public final class Generator {
         shortenGeneratedTypes(
             owner,
             StaticJavaParser.parseBodyDeclaration(
-                "@" + type("injectionAnnotation") + " private " + fqn + " " + preferred + ";")));
+                Templates.render("app/injected-field.java.tpl",
+                    "injectionAnnotation", type("injectionAnnotation"),
+                    "fieldType", fqn, "fieldName", preferred))));
     return preferred;
   }
 
@@ -362,26 +366,7 @@ public final class Generator {
       }
       return;
     }
-    StringBuilder code =
-        new StringBuilder("public class " + Contract.simple(m.className()) + " {\n");
-    for (var f : m.fields()) {
-      code.append("private ").append(f.type()).append(' ').append(f.name()).append(";\n");
-      code.append("public ")
-          .append(f.type())
-          .append(" get")
-          .append(Contract.cap(f.name()))
-          .append("(){return ")
-          .append(f.name())
-          .append(";}\n");
-      code.append("public void set")
-          .append(Contract.cap(f.name()))
-          .append('(')
-          .append(f.type())
-          .append(" value){this.")
-          .append(f.name())
-          .append("=value;}\n");
-    }
-    emit(m.className(), m.sourceRoot(), code.append('}').toString());
+    emit(m.className(), m.sourceRoot(), Templates.model(m));
   }
 
   private void handler(Contract.Step step) throws Exception {
@@ -407,42 +392,11 @@ public final class Generator {
                 .append(error(f.name() + " is blank"))
                 .append(";}");
         }
-    String code =
-        "@"
-            + type("componentAnnotation")
-            + " public class "
-            + simple
-            + " extends "
-            + type("handlerBase")
-            + "<"
-            + step.inputType()
-            + ","
-            + step.outputType()
-            + "> {"
-            + "@Override protected BasicApiContext preHandler("
-            + step.inputType()
-            + " request) throws "
-            + exception
-            + " {"
-            + pre
-            + " Context ctx=new Context();ctx.input=request;return ctx;}"
-            + "@Override protected BasicApiContext invokeAtomicApi(BasicApiContext context) throws "
-            + exception
-            + " {throw "
-            + error("ATOMIC_API_UNIMPLEMENTED: " + simple + " underlying capability")
-            + ";}"
-            + "@Override protected "
-            + step.outputType()
-            + " postHandler(BasicApiContext context) throws "
-            + exception
-            + " {Context ctx=(Context)context;if(ctx.result==null){throw "
-            + error("result is null")
-            + ";}return ctx.result;}"
-            + "private static class Context extends BasicApiContext {private "
-            + step.inputType()
-            + " input;private "
-            + step.outputType()
-            + " result;}}";
+    String code = Templates.render("app/handler.java.tpl",
+        "componentAnnotation", type("componentAnnotation"), "className", simple,
+        "handlerBase", type("handlerBase"), "inputType", step.inputType(),
+        "outputType", step.outputType(), "internalException", exception,
+        "validation", pre.toString());
     emit(step.handler(), step.sourceRoot(), code);
   }
 
@@ -454,19 +408,11 @@ public final class Generator {
     emit(
         b.builder(),
         b.sourceRoot(),
-        "@"
-            + type("componentAnnotation")
-            + " public class "
-            + Contract.simple(b.builder())
-            + " { public "
-            + contract.models().response().className()
-            + " build("
-            + params
-            + ") throws "
-            + type("internalException")
-            + " {throw "
-            + error("ATOMIC_API_UNIMPLEMENTED: map Handler results to business response")
-            + ";}}");
+        Templates.render("app/builder.java.tpl",
+            "componentAnnotation", type("componentAnnotation"),
+            "className", Contract.simple(b.builder()),
+            "responseType", contract.models().response().className(),
+            "parameters", params.toString(), "internalException", type("internalException")));
   }
 
   private String parameters() {
@@ -494,9 +440,10 @@ public final class Generator {
     var owner = target(fqn, true);
     if (owner.getFieldByName("INSTANCE").isEmpty())
       owner.addMember(
-          StaticJavaParser.parseBodyDeclaration(fqn + " INSTANCE=new " + fqn + "(){};"));
+          StaticJavaParser.parseBodyDeclaration(Templates.render(
+              "app/converter-instance.java.tpl", "converterType", fqn)));
     String req = contract.models().request().className(), variable = local("request");
-    StringBuilder body = new StringBuilder(req + " " + variable + "=new " + req + "();");
+    StringBuilder body = new StringBuilder();
     for (var f : contract.models().request().fields())
       body.append(variable)
           .append(".set")
@@ -506,36 +453,21 @@ public final class Generator {
           .append(");");
     addMethod(
         owner,
-        "default "
-            + req
-            + " "
-            + converterMethod()
-            + "("
-            + parameters()
-            + "){"
-            + body
-            + "return "
-            + variable
-            + ";}");
+        Templates.render("app/request-converter.method.java.tpl",
+            "requestType", req, "methodName", converterMethod(), "parameters", parameters(),
+            "requestVariable", variable, "fieldBindings", body.toString()));
   }
 
   private void facade() {
     var owner = target(contract.target().facade(), true);
     addMethod(
         owner,
-        "default "
-            + contract.models().response().className()
-            + " "
-            + contract.operation()
-            + "("
-            + contract.models().request().className()
-            + " request) throws "
-            + type("internalException")
-            + " {"
-            + (profile.facadeDefault().equals("return-null")
-                ? "return null;"
-                : "throw " + error("Facade not assembled: " + contract.operation()) + ";")
-            + "}");
+        Templates.render("app/facade.method.java.tpl",
+            "requestType", contract.models().request().className(),
+            "responseType", contract.models().response().className(),
+            "operation", contract.operation(), "internalException", type("internalException"),
+            "defaultBehavior", profile.facadeDefault().equals("return-null")
+                ? "return null;" : "throw " + error("Facade not assembled: " + contract.operation()) + ";"));
   }
 
   private String getter(String type, String name, String expected) {
@@ -720,17 +652,11 @@ public final class Generator {
     }
     addMethod(
         owner,
-        "@Override public "
-            + contract.models().response().className()
-            + " "
-            + contract.operation()
-            + "("
-            + contract.models().request().className()
-            + " request) throws "
-            + type("internalException")
-            + " {"
-            + body
-            + "}");
+        Templates.render("app/implementation.method.java.tpl",
+            "requestType", contract.models().request().className(),
+            "responseType", contract.models().response().className(),
+            "operation", contract.operation(), "internalException", type("internalException"),
+            "handlerCalls", body.toString()));
   }
 
   private void delegate() {
@@ -783,47 +709,6 @@ public final class Generator {
                 + ");throw "
                 + wrappedVar
                 + ";";
-    String body =
-        "try {\n// 1. 转换业务请求\n"
-            + request
-            + " "
-            + reqVar
-            + "="
-            + contract.target().converter()
-            + ".INSTANCE."
-            + converterMethod()
-            + "("
-            + args
-            + ");\n"
-            + "// 2. 调用业务 Facade\n"
-            + contract.target().facade()
-            + " "
-            + facadeVar
-            + "=this."
-            + manager
-            + ".getFacadeImpl("
-            + contract.target().facade()
-            + ".class);\n"
-            + response
-            + " "
-            + resultVar
-            + "="
-            + facadeVar
-            + "."
-            + contract.operation()
-            + "("
-            + reqVar
-            + ");return "
-            + responseCall
-            + "("
-            + resultVar
-            + ");}catch("
-            + type("internalException")
-            + " "
-            + errorVar
-            + "){"
-            + failure
-            + "}";
     String declarationParameters = parameters();
     String annotation = "";
     if (!owner.getImplementedTypes().isEmpty() || !owner.getExtendedTypes().isEmpty()) {
@@ -857,18 +742,17 @@ public final class Generator {
     }
     addMethod(
         owner,
-        annotation
-            + "public "
-            + contract.externalResponse()
-            + " "
-            + contract.operation()
-            + "("
-            + declarationParameters
-            + ")"
-            + (contract.returnsFailureMessage() ? "" : " throws " + type("externalException"))
-            + " {"
-            + body
-            + "}");
+        Templates.render("app/delegate.method.java.tpl",
+            "overrideAnnotation", annotation, "externalResponse", contract.externalResponse(),
+            "operation", contract.operation(), "parameters", declarationParameters,
+            "throwsClause", contract.returnsFailureMessage() ? "" : " throws " + type("externalException"),
+            "requestType", request, "requestVariable", reqVar,
+            "requestConverter", contract.target().converter(), "requestMethod", converterMethod(),
+            "arguments", args, "facadeType", contract.target().facade(),
+            "facadeVariable", facadeVar, "managerVariable", manager,
+            "responseType", response, "resultVariable", resultVar,
+            "responseCall", responseCall, "internalException", type("internalException"),
+            "errorVariable", errorVar, "failureAdaptation", failure));
     StringBuilder mapping =
         new StringBuilder("if(result==null){throw " + error("result is empty") + ";}");
     if (contract.stringResponse()) {
@@ -903,20 +787,15 @@ public final class Generator {
       if (responseOwner.getFieldByName("INSTANCE").isEmpty())
         responseOwner.addMember(
             StaticJavaParser.parseBodyDeclaration(
-                responseConverter + " INSTANCE = new " + responseConverter + "() {};"));
+                Templates.render("app/converter-instance.java.tpl", "converterType", responseConverter)));
     }
     addMethod(
         responseOwner,
-        (responseConverter == null ? "private " : "default ")
-            + contract.externalResponse()
-            + " "
-            + (responseConverter == null ? builder : responseMethod)
-            + "("
-            + response
-            + " result) throws "
-            + type("internalException")
-            + " {"
-            + mapping
-            + "return response;}");
+        Templates.render("app/response-converter.method.java.tpl",
+            "visibility", responseConverter == null ? "private " : "default ",
+            "externalResponse", contract.externalResponse(),
+            "methodName", responseConverter == null ? builder : responseMethod,
+            "responseType", response, "internalException", type("internalException"),
+            "fieldMapping", mapping.toString()));
   }
 }
