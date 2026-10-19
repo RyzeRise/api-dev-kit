@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JAR = ROOT / 'cli/target/atomic-api-0.7.0.jar'
+JAR = ROOT / 'cli/target/atomic-api-0.7.1.jar'
 
 
 @unittest.skipIf(os.name == 'nt', 'POSIX entry; Windows runs a PowerShell smoke test')

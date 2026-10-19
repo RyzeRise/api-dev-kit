@@ -1,23 +1,61 @@
 ---
 name: api-dev
-description: 按项目规范开发或审查 api-atomic 与 ipran-app-api，使用独立契约、生成器和检查路线。适用于原子接口/DTO/版本实现/Latest，以及业务 Facade/Handler/Builder、service 入口与转换器。
+description: 开发或修改本项目 Java API。先判断是 api-atomic 原子能力还是 ipran-app-api 业务接口，再读取对应操作手册，使用仓库内生成/检查工具，并实现真实业务与测试。
 ---
 
-# API Dev
+# API 开发
 
-先选择开发层，再读对应文档；不要把 Atomic 和 App 当成同一套模板。
+把用户的需求落实为本项目的代码。工具负责生成部分结构和检查规范；你负责读懂已有接口、实现底层调用、接入现有入口并测试。不要把生成的占位代码当成交付。
 
-| 任务范围 | 必读文档 | 工具路线与配置 |
+## 收到任务，先这样做
+
+1. 在业务仓库根目录读 AGENTS.md（若有）、git status，查找用户提到的 DTO、Facade、Handler、Delegate 和原子接口。已有代码优先复用；用户要新增一个方法，不代表需要新建整套类。
+2. 用下表选手册。**写代码前读完该手册的开发步骤与规范**，不要只读入口文件就开始生成。
+
+| 用户要做的事 | 读哪份手册 | 使用哪套工具 |
 |---|---|---|
-| api-atomic-common、api-atomic：原子接口、DTO、版本实现、底层封装和 Latest | [api-atomic.md](references/api-atomic.md) | `--layer atomic`；`.atomic-api/atomic-profile.yaml` |
-| ipran-app-api-common、ipran-app-api-*：公共契约、Facade/Handler/Builder，以及 service 接入 | [app-api.md](references/app-api.md) | `--layer app`；`.atomic-api/profile.yaml` |
-| 同时新增底层能力和业务接入 | 两份都读，先 Atomic 再 App | 两份契约、两次 verify，分别交付与规划 MR |
+| 封装设备/控制器接口，新增原子接口、版本实现或 Latest | [api-atomic.md](references/api-atomic.md) | `--layer atomic`，配置 `.atomic-api/atomic-profile.yaml` |
+| 在现有原子能力上增加业务查询/修改，接 Facade、Handler 和 service | [app-api.md](references/app-api.md) | `--layer app`，配置 `.atomic-api/profile.yaml` |
+| 两层都缺 | 两份都读；先原子能力，再业务接入 | 分别生成契约、检查和交付 |
 
-业务模块和 package 以实际配置为准；上表模块是本项目的职责边界。App 的现有契约保持兼容；省略 layer 仍为 app，新任务始终显式选择。Atomic 契约含 `layer: atomic`，App 契约含 `version: 2`，两者不得互换或降级绕过。
+例如“查询 L2EVPN 的 EVPL 节点、修改 EVPL Service ID”：先读 App 手册并查现有 Atomic 能力；只有底层能力确实缺失时才进入 Atomic 手册。不要根据“EVPL”这个词直接决定开发层。
 
-## 共用规范
+3. 检查配套工具：Linux/macOS 执行 `sh .atomic-api/tool/atomic-api.sh -h`；Windows PowerShell 执行 `& ".atomic-api/tool/atomic-api.cmd" -h`。工具需 Java 17+，免全局安装。
+4. 读所选 profile，按相邻已运行的代码核对真实框架类型、包、目录和日志 API。profile 是项目一次性配置；每个操作的字段和映射另存在 contract YAML。不要把 init 产生的 com.example 草稿用于真实项目。
 
-以下保留历史 N 编号。表中 N 检查入口属于既有 **App 检查器**；Atomic 对应检查及尚未覆盖项见 api-atomic.md 的 A01～A08，不能拿 App 的通过结果验收 Atomic。
+## 先告诉用户你找到了什么
+
+用几句话列出：对外入口、业务模块、可复用的原子接口/版本、需要改的文件。若缺少会影响实现的资料，指出具体缺失；能从源码找到的先找，不要求用户再解释整个项目。
+
+已有实现（包括本例 L2EVPN）先走手册的增量开发步骤；不要默认执行 new/generate。只有新操作且模板适用时，才准备契约 → 预览 → 生成 → 实现真实业务。两条路径最终都要检查、编译和测试；不能为了工具通过改项目架构。
+
+## 写代码时始终遵守
+
+- Helper 仅一个 public 业务入口（含继承，排除 Object 方法和构造器）。辅助方法私有化。已有类保持框架继承；新类可按项目约定用单类 Component。
+- 中文注释解释业务意图、判断优先级；缩写在说明中展开。不要用“处理请求”代替真正的业务说明。
+- 按项目日志 API 写 entry()/ret()，每个显式 return/throw 前记录 ret，不为日志强加 try-catch。异常用可诊断英文，保留原错误与 cause；格式化用 Locale.ROOT。不记录凭据。
+- 不擅自改已有公开接口、JSON 字段、默认值、集合顺序、null/空集合或错误语义。遵循实际版权头。
+- 不覆盖用户修改。不能通过删占位、返回空成功、修改规则/profile 或放宽断言伪造完成。
+
+## 怎么判断做完了
+
+1. 模板与真实契约已适配时，用原 layer 和原契约运行 verify，按文件、规则和 fix 修复。若当前结构不适配，按手册执行只读辅助检查，并明确“未完成工具验收”；仍须真实编译和定向测试。不要伪造契约、降低版本，或把 check 说成 verify。
+2. `git diff --check` 后，按项目实际 JDK/settings/本地仓库编译并运行定向测试。构建失败先看真实命令、首错和本次 diff；缺 DTO 可能导致后续 MapStruct 连带失败。
+3. 输出改动文件、实际调用链、编译/测试命令与退出码，以及仍未验证的项目。日志放 `.atomic-api/work/<operation>/`，长任务续读原日志，不重复启动。
+
+| 检查结果 | 你下一步做什么 |
+|---|---|
+| FAIL / 退出 1 | 修源码；若仅交骨架则保留占位，明确说明业务未实现 |
+| INCOMPLETE / 退出 2 | 补真实配置、源码或依赖 JAR；不当作通过 |
+| REVIEW_REQUIRED | 自动结构未证明这些语义；结合实际源码、基线、测试逐项说明 |
+| 退出 0 / STRUCTURE_READY | 只是自动结构检查无阻塞，继续确认编译、测试和待审项 |
+| SCAFFOLD | 只有结构，真实底层尚未接通，不能报告接口已可用 |
+
+只交任务范围，按已有授权提交推送，不自动部署或操作网元。Atomic/App 分别规划 MR；App 依赖新 Atomic 时先合 Atomic，再更新 App 基线，已有明确豁免不追溯拆分。
+
+## 共用规范与检查器对照
+
+这里保留逐条映射，供审查和定位错误，不是需要填写的表单。N 编号的代码入口属于 App 检查器；Atomic 的对应覆盖见 api-atomic.md 的 A01～A08。`rules --layer app --format json` 或 `rules --layer atomic --format json` 可查看完整清单。
 
 | 编号 | 代码规范 | 检查入口与覆盖范围 | 生成器支持 |
 |---|---|---|---|
@@ -30,23 +68,4 @@ description: 按项目规范开发或审查 api-atomic 与 ipran-app-api，使�
 | N23 | 生成前预览，冲突拒绝覆盖，写入不越界；不改配置、断言或规则掩盖失败。 | `GenerationPlan.apply / CodeRules.paths`；部分自动，仍需审查。未覆盖：写入边界由生成器执行；修改规则的意图、任务范围和基线需审查。 | 生成器固定（`FIXED`） |
 | N24 | 不在日志或 diagnostic 字段输出密码、令牌等敏感信息，沿用实际版权头和日志 API。 | `CodeRules.privacy`；部分自动，仍需审查。未覆盖：拦截明显敏感字段/日志；隐式内容和版权归属需项目证据。 | 安全默认值，项目细节待补（`SAFE_DEFAULTS`） |
 
-中文注释解释业务意图与优先级，缩写注明全拼；仅有中文不代表说明正确。旧类继承保持框架约定，新类可单类 Component。Helper 单一 public 业务入口包含继承方法，但排除继承自 Object 的方法和构造器。遵循真实版权头与日志 API；不记录凭据。
-
-## 固定执行顺序
-
-1. 在业务仓库根目录读取 AGENTS.md、git status、相关真实源码和所选路线 profile。核对实际模块、字段、版本、注册及日志，不用 com.example 配置充当项目资料。
-2. 先执行 `sh .atomic-api/tool/atomic-api.sh -h`。Windows PowerShell 使用 `& ".atomic-api/tool/atomic-api.cmd"` 替换命令前缀。工具免安装，需 Java 17+ 及完整配套 JAR；缺依赖报告位置，不安装全局命令、不改 PATH。
-3. 按对应文档执行 `new --layer ...`，填写真实契约，`generate --dry-run` 审阅后再 `--apply`。有冲突就保留业务文件并审查，不能删文件迫使覆盖。重复生成应 NOOP；实现后有冲突属保护行为，不回写已有业务。
-4. 按同一 layer 执行 `verify`。FAIL 修源码，INCOMPLETE 补实际类型/配置，REVIEW_REQUIRED 补业务证据；旧契约 NOT_EVALUATED 不能当通过。结构无阻塞不代表业务交付完成。
-5. 先 git diff --check，再按实际 JDK/settings/本地仓库执行受影响模块与 service 链路编译、定向测试。先查本次 diff、真实命令和首错；缺输入类型后的 MapStruct 错误可能是连带结果。
-6. 日志存 `.atomic-api/work/<operation>/`；长任务续读，不重复启动。交付列出路线、命令、退出码、测试统计及逐条未验证项。只交任务改动，依已有授权提交推送，不自动部署或操作网元。
-
-缺底层资料时保留明确占位，报告 SCAFFOLD 和 verify 非零；不能返回空成功、删标记、放宽断言或改规则/profile 制造通过。
-
-## 日志配置
-
-两条路线的各自 profile 均可配置真实 `logging.type`、`logging.factoryType`、`logging.factoryMethod`。工厂为静态方法，接收 Class 并返回配置日志类型；日志类型提供无参 entry()/ret()。生成器为新业务方法生成入口和显式出口日志，不额外构造 try-catch。签名不同须按实际框架适配工具；缺配置明确待审，不伪造 API。
-
-## 查看规范覆盖
-
-`rules --layer app|atomic --format json` 列出该路线的规范、检查代码、生成支持和证明边界。`verify` 的结构结果与规范结果分开：退出 0 仅自动结构检查无阻塞，部分自动/审查规则仍为 REVIEW_REQUIRED；退出 1 为违规或占位，2 为配置/解析不完整。真实业务效果、历史兼容、动态注册和测试执行必须另有证据。
+日志生成的可选配置在各自 profile 的 logging 下：type（实际日志类）、factoryType（实际工厂）、factoryMethod（静态工厂方法）。当前支持工厂接收 Class、返回日志类，以及无参 entry()/ret()。其他签名先适配工具，不能伪造项目 API。缺配置时保留待审状态。

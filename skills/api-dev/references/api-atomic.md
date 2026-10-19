@@ -2,18 +2,12 @@
 
 与 SKILL.md 的共用规范一起执行。本路线只管理 api-atomic-common 的接口/DTO/Latest 契约，以及 api-atomic 的版本实现和底层调用封装，不生成 App Facade、Handler 或 service Delegate。
 
-## 规范与覆盖
+## 开发时按这个顺序读
 
-| 编号 | 代码规范 | 检查入口与覆盖范围 | 生成器支持 |
-|---|---|---|---|
-| A01 | 原子接口、公共 DTO、版本实现和 Latest 分别服从 Atomic roles，不能生成 App 编排类。 | `AtomicTool.layout`；自动（限定范围）。未覆盖：限定本契约类型；不推断项目模块名称。 | `FIXED` |
-| A02 | 原子接口只声明本操作的 ReqDto→RspDto；公共 DTO 字段符合契约且不反向依赖实现。 | `AtomicTool.signature`；部分自动，仍需审查。未覆盖：检查源码类型和直接依赖；字段语义、外部 JAR 及传递依赖需审查。 | `FIXED` |
-| A03 | 每个声明的支持版本实现相同原子签名，底层未接通时明确失败，不返回空成功。 | `AtomicTool.versions`；部分自动，仍需审查。未覆盖：占位和明显空返回会阻塞；真实调用效果需业务测试。 | `SCAFFOLD` |
-| A04 | 版本注册注解来自实际框架，完整保留配置值，不凭空生成注册机制。 | `AtomicTool.registration`；部分自动，仍需审查。未覆盖：校验注解类型可解析及契约表达式；管理器动态发现、注解适用性和参数类型由编译/运行证明。 | `EXPLICIT_ANNOTATIONS` |
-| A05 | Latest 按实际 class/interface 体系连接最新支持实现；首支持版本和版本顺序必须有历史证据。 | `AtomicTool.latest`；部分自动，仍需审查。未覆盖：校验显式继承关系；契约末版本是否最新及历史不支持路径需审查。 | `CONFIGURED_KIND` |
-| A06 | Helper 保持单一 public 业务入口；沿用中文意图注释、英文异常、真实 entry/ret 日志 API，不为 ret 强造 try-catch；不泄露凭据。 | `AtomicTool.conventions`；部分自动，仍需审查。未覆盖：检查本业务或直接引用的源码 Helper（含继承）、中文存在、明显中文错误/敏感日志及显式出口；外部 Helper、注释含义和隐式路径待审查。 | `WHEN_LOGGING_CONFIGURED` |
-| A07 | 公共契约迁移保留 JSON、公开接口及错误语义，Maven 接线和父版本保持一致。 | `AtomicTool.integration`；部分自动，仍需审查。未覆盖：校验本地父版本；wire 基线、完整 Reactor/classifier 和兼容性需构建测试。 | `NOT_GENERATED` |
-| A08 | 通过真实版本选择、Latest、成功/非法输入/底层失败及旧版本不支持测试后交付。 | `AtomicTool.tests`；仅定位证据，需业务审查。未覆盖：报告测试未执行；源码存在不代表已运行，必须附实际命令和结果。 | `NOT_GENERATED` |
+1. 先读“一次配置”，确认实际原子框架与 Latest 关系。
+2. 按“新能力固定流程”准备一项真实操作的契约，补齐注册注解后预览并生成。
+3. 实现底层调用，再按“接线、测试和证据”验收；占位不算完成。
+4. 末尾规范表用于检查和查错，不是需要填写的表单。
 
 ## 一次配置
 
@@ -57,3 +51,16 @@ sh .atomic-api/tool/atomic-api.sh verify --layer atomic --contract .atomic-api/c
 - 测试版本选择、Latest、实际首次支持、旧版本不支持、成功响应、非法参数、查无数据和底层失败。捕获真实底层请求，核对规范化字段及异常 cause；测试沿用项目 JUnit 版本，报告实际结果。
 - A02～A08 的部分自动/审查项即使没有结构错误也保留 REVIEW_REQUIRED；工具不执行业务 Maven 测试、不证明动态注册或底层效果。真实日志未配置同样待验证。
 - Atomic/App 分开规划提交和 MR。App 依赖新 Atomic 时先合 Atomic，再更新 App 基线；明确豁免的现有 MR 不追溯拆分，不擅自改写历史。
+
+## 完整规范与检查器对照
+
+| 编号 | 代码规范 | 检查入口与覆盖范围 | 生成器支持 |
+|---|---|---|---|
+| A01 | 原子接口、公共 DTO、版本实现和 Latest 分别服从 Atomic roles，不能生成 App 编排类。 | `AtomicTool.layout`；自动（限定范围）。未覆盖：限定本契约类型；不推断项目模块名称。 | `FIXED` |
+| A02 | 原子接口只声明本操作的 ReqDto→RspDto；公共 DTO 字段符合契约且不反向依赖实现。 | `AtomicTool.signature`；部分自动，仍需审查。未覆盖：检查源码类型和直接依赖；字段语义、外部 JAR 及传递依赖需审查。 | `FIXED` |
+| A03 | 每个声明的支持版本实现相同原子签名，底层未接通时明确失败，不返回空成功。 | `AtomicTool.versions`；部分自动，仍需审查。未覆盖：占位和明显空返回会阻塞；真实调用效果需业务测试。 | `SCAFFOLD` |
+| A04 | 版本注册注解来自实际框架，完整保留配置值，不凭空生成注册机制。 | `AtomicTool.registration`；部分自动，仍需审查。未覆盖：校验注解类型可解析及契约表达式；管理器动态发现、注解适用性和参数类型由编译/运行证明。 | `EXPLICIT_ANNOTATIONS` |
+| A05 | Latest 按实际 class/interface 体系连接最新支持实现；首支持版本和版本顺序必须有历史证据。 | `AtomicTool.latest`；部分自动，仍需审查。未覆盖：校验显式继承关系；契约末版本是否最新及历史不支持路径需审查。 | `CONFIGURED_KIND` |
+| A06 | Helper 保持单一 public 业务入口；沿用中文意图注释、英文异常、真实 entry/ret 日志 API，不为 ret 强造 try-catch；不泄露凭据。 | `AtomicTool.conventions`；部分自动，仍需审查。未覆盖：检查本业务或直接引用的源码 Helper（含继承）、中文存在、明显中文错误/敏感日志及显式出口；外部 Helper、注释含义和隐式路径待审查。 | `WHEN_LOGGING_CONFIGURED` |
+| A07 | 公共契约迁移保留 JSON、公开接口及错误语义，Maven 接线和父版本保持一致。 | `AtomicTool.integration`；部分自动，仍需审查。未覆盖：校验本地父版本；wire 基线、完整 Reactor/classifier 和兼容性需构建测试。 | `NOT_GENERATED` |
+| A08 | 通过真实版本选择、Latest、成功/非法输入/底层失败及旧版本不支持测试后交付。 | `AtomicTool.tests`；仅定位证据，需业务审查。未覆盖：报告测试未执行；源码存在不代表已运行，必须附实际命令和结果。 | `NOT_GENERATED` |

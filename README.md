@@ -2,6 +2,8 @@
 
 让 Code Agent 按项目规范生成、检查 Java API。只需向 Agent 描述任务并指定 skill 文件；命名、目录和部分分层约束由工具执行。
 
+首次使用请先读 [QUICKSTART.md](QUICKSTART.md)：以本项目 L2EVPN 查询 EVPL 节点、修改 EVPL Service ID 为例，说明接入、任务提示、生成边界和验收。
+
 ## 仓库结构
 
 | 位置 | 存在理由 |
@@ -9,7 +11,7 @@
 | `skills/` | 单一 api-dev/SKILL.md 入口，references/api-atomic.md 和 app-api.md 分别指导两层开发。 |
 | `tools/` | 代码生成/检查工具的入口、Java 实现、模板、schema，以及保证其正确性的测试和打包程序。 |
 
-根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.7.0。
+根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.7.1。
 
 ## 放进业务仓库
 
@@ -29,7 +31,7 @@ Windows PowerShell：
 
 只需 Java 17+，无需全局安装、Maven、Python、管理员权限或修改 PATH。init 只生成 `.atomic-api/` 内的配置、契约示例和统一 api-dev skill（含两份路线文档），保留已有文件。维护者核对 profile 后，对支持读取文件及执行命令的任意 Agent 提示：
 
-> 请读取 `.atomic-api/skills/api-dev/SKILL.md`，新增根据地址查询电路的接口，复用已有底层能力。
+> 请读取 `.atomic-api/skills/api-dev/SKILL.md`，开发 L2EVPN 的 EVPL 节点查询接入，先读已有实现并复用真实底层能力；已经存在则核对并增量修改。
 
 同一入口按任务读取 `references/api-atomic.md` 或 `references/app-api.md`。不配置各 Agent 专用目录。init 新建统一入口并保留已有文件；升级不会覆盖 profile、skill 定制，也不删除旧 atomic-api-dev/app-api-dev。对照合并定制后再移除旧目录，避免 Agent 继续读旧流程。
 
@@ -64,15 +66,15 @@ Helper 单一公开入口、组件注解、显式日志出口、异常文本语�
 
 ## 开发流程
 
-App 示例，以下命令在业务仓库根执行，Windows 将前缀换为 `& ".atomic-api/tool/atomic-api.cmd"`：
+以下仅为**模板已适配的新操作**示例；已有 L2EVPN 命名、内部节点和响应回填不能直接套通用模板，先按 App 手册核对。命令在业务仓库根执行，Windows 将前缀换为 `& ".atomic-api/tool/atomic-api.cmd"`：
 
 ```bash
-sh .atomic-api/tool/atomic-api.sh new --layer app --operation queryCircuit --business circuit
+sh .atomic-api/tool/atomic-api.sh new --layer app --operation queryL2evpnEvplNodes --business l2evpn
 # Agent 填写输出契约中的真实业务字段、外部响应与映射
-sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
-sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryCircuit.yaml --apply
+sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --dry-run
+sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --apply
 # 实现真实业务后检查并按 FIX 修复
-sh .atomic-api/tool/atomic-api.sh verify --layer app --contract .atomic-api/contracts/queryCircuit.yaml
+sh .atomic-api/tool/atomic-api.sh verify --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml
 ```
 
 Atomic 示例：
