@@ -13,7 +13,9 @@
 | 方法不存在，但应复用已有 Facade/Delegate 等 | 只增加所需成员及缺失文件，不另建一套类 |
 | 确需一套新骨架，命名与框架兼容 | 通过适配检查表后走新增生成流程 |
 
-复用已有类时可先核对新操作草稿与 dry-run；仅当目标与原类一致、计划只增所需成员且保留已有业务体时 apply，否则手工增量。已验证的复用范围和真实限制见 [校准记录](l2evpn-example.md#本轮工具源码校准与验证)。
+本项目 L2EVPN 查询对外直接返回 `List<L2EvpnEvplNode>`，不满足生成器响应对象无参构造/setter 的前提；新增同类查询应复用已有响应 Converter 的逐节点映射，手工增量添加成员。修改对外返回 String，预期业务失败仍返回错误字符串；查询失败包装 ServiceException 并保留 cause。不能把两者统一为相同异常策略。
+
+复用已有类时可先核对新操作草稿与 dry-run；仅当目标与原类一致、计划只增所需成员且保留已有业务体时 apply，否则手工增量。已验证的复用范围和真实限制见 [校准记录](l2evpn-example.md#真实源码校准2026-10-19)。
 
 写下真实请求/响应字段、默认值、异常以及调用链：
 
@@ -49,7 +51,7 @@ sh .atomic-api/tool/atomic-api.sh new --layer app --operation queryL2evpnEvplNod
 | responseBindings | 外部响应字段名 → 业务响应字段名，只填字段名，不写 Java 表达式 |
 | errorMode | 外部响应为 String 时选择 exception/message，遵守历史契约 |
 
-字段列表必须从当前请求/响应 DTO 和调用者填写：name 是真实字段，type 是完整 Java 类型，description 写中文含义，required/diagnostic 按真实校验和安全约定选择。L2EVPN 的 neId 类型尚未在本工具仓核实，不在此示例中预填 String 或 Long。不要把格式示例当作业务契约。
+字段列表必须从当前请求/响应 DTO 和调用者填写：name 是真实字段，type 是完整 Java 类型，description 写中文含义，required/diagnostic 按真实校验和安全约定选择。L2EVPN 当前已确认 neId/evplId 为 java.lang.Long，详见案例；其他业务仍从源码取类型。不要把格式示例当作业务契约。
 
 String 外部响应的 responseBindings 只有保留键 message，其值为业务响应字段名；若字段也叫 message，则写 `message: message`。
 

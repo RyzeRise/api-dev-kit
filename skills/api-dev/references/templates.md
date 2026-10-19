@@ -49,7 +49,7 @@
 | handlerCalls、parameters、arguments、各 Variable、failureAdaptation、defaultBehavior | 契约步骤、真实签名和异常策略；生成器负责组装，不能用它们藏真实业务实现 |
 
 模板结构中的 getFacadeImpl、双泛型 Handler/BasicApiContext、getErrMsg、REST setter 等仍是工具当前支持的框架形状；配置类名不等于签名适配。
-缺失私有签名时按 [L2EVPN 待核对资料](l2evpn-example.md#需要私有源码核对的项目)报告，不创建假框架类充当业务适配。
+缺失私有签名时参照 [L2EVPN 源码核对表](l2evpn-example.md#源码依据与模板差异)报告，不创建假框架类充当业务适配。
 
 ## 测试模板怎样使用
 
@@ -66,4 +66,6 @@ generate 将待办放在 `.atomic-api/work/<layer>-<operation>/tests/<Operation>
 
 ### 已执行的测试接入示例
 
-工具仓已有 `AppTestPlanTest`，使用本仓实际 JUnit 5/Surefire，完成过四个占位失败→四个调用/断言通过的接入。确切命令、报告与范围见 [校准记录](l2evpn-example.md#testplan-接入记录)。它不是私有业务框架或 L2EVPN 成功案例，不把 JUnit 5 强加给业务模块。
+工具仓已有 `AppTestPlanTest`，使用本仓实际 JUnit 5/Surefire，完成过四个占位失败→四个调用/断言通过的接入。这是工具生成机制的回归，不是私有业务框架或 L2EVPN 成功案例，不把 JUnit 5 强加给业务模块。
+
+L2EVPN 已另以项目实际 JUnit 4.13.2 / Surefire 2.22.2 完成红绿验证，见 [真实业务测试记录](l2evpn-example.md#真实业务测试接入)。业务测试使用 org.junit.Test、public 非 static 测试方法、*Test 类名；工具回归仍使用 JUnit 5。报告应核对本轮时间；本轮编译失败时，target 下的旧测试报告不能算本轮结果。

@@ -3,7 +3,7 @@
 本案例用于校准 [App 通用步骤](app-api.md)和 [Atomic 步骤](api-atomic.md)，不要求其他业务继承这些名称、字段或版本。
 入口：[Skill](../SKILL.md)、[模板说明](templates.md)；仓库快速使用见根目录 QUICKSTART.md。
 
-资料来自此前开发上下文，**不是完整、权威的私有源码快照**。下列名称是搜索线索，字段与行为是待核对基线；当前分支源码、调用者和测试优先。缺文件时列出缺失，不创建同名空类。
+2026-10-19 已直接核对业务仓主分支及 L2EVPN 分支，具体提交、适配差异与实际测试见文末。以下是该次源码基线；后续开发仍以当前分支源码、调用者和测试为准，不能据本例补造缺失类型。
 
 ## 1. 给 Agent 的任务
 
@@ -27,17 +27,17 @@
 
 ## 3. 核实查询与修改契约
 
-查询模型线索：QueryL2evpnEvplNodesReqDto/RspDto，输入 neId；类型和校验从源码读取。
+查询模型：QueryL2evpnEvplNodesReqDto/RspDto。请求 neId、evplId 均为 Long 且都必填；当前 Handler 只检查 null，不新增正数/范围约束。
 响应 evplNodes 的节点线索为 QueryL2evpnEvplNodesRspDto.L2evpnEvplNodeDto（public static）。核对以下八个字段：
 
-| 字段 | 待核对含义 |
+| 字段及源码类型 | 含义 |
 |---|---|
-| evplNodeId、neId、deviceId、evplId | 节点、网元、设备和 EVPL 标识 |
-| localServiceId、remoteServiceId | 本端/远端 Service ID |
-| operateStatus、esi | 状态和 Ethernet Segment Identifier（以太网段标识） |
+| evplNodeId:String、neId:Long、deviceId:String、evplId:Long | 节点、网元、设备和 EVPL 标识 |
+| localServiceId:Long、remoteServiceId:Long | 本端/远端 Service ID |
+| operateStatus:String、esi:String | 状态和 Ethernet Segment Identifier（以太网段标识） |
 
-既有上下文区分 null 列表（未提供结果）与显式空列表（没有业务节点）；必须用当前实现和测试核对，不能当作通用业务约定。确认字段类型、节点顺序、默认值和缺失消息处理。
-修改模型线索：ModifyL2evpnEvplServiceIdReqDto/RspDto。核对原子 DTO 与外部请求后确定改哪一端、哪些标识必填及成功/失败表达；这里不补造修改字段。
+查询 Handler 对响应、service、evplNodes 容器、nodes 列表逐层判 null，列表中 null 节点也报错；显式空列表合法。循环映射保留全部节点和原顺序，不筛选为单端。
+修改请求 neId、evplId、localServiceId、remoteServiceId 均为 Long 且必填；本端与远端分别原样传入 Atomic DTO，不互换。修改响应 message 为 String；底层空白成功正文仍生成成功说明。
 
 ## 4. 按职责实现，按模板适配程度选择路径
 
@@ -55,7 +55,7 @@
 
 现有 OpsIpran... 命名、专属内部节点、请求字段回填可能与通用模板不符。此时按 App“模板不适用”分支增量修改，不执行整套 generate。
 新操作只有经真实 profile/契约适配后才执行 App 手册的 new → 预览 → generate；operation/business 替换为本次操作。
-Atomic 首支持版本不在本资料中，不能把命令里的 R26C10 当事实；补版本按 Atomic“补版本”流程保留历史实现。
+当前源码把 getServiceByEvpl 定义在 R26C10，并由 Latest extends R26C10；R26C00 只有原有查询方法。修改接口只有 R26C10 与 Latest，没有 R26C00。以上证明当前声明位置，不等于完整历史或部署支持范围；补版本按 Atomic 的嵌套版本增量路线保留历史实现。
 
 ## 5. 验收本例
 
@@ -66,78 +66,64 @@ Atomic 首支持版本不在本资料中，不能把命令里的 R26C10 当事�
 
 结构已适配：按本层真实契约 verify。未适配：App 辅助 check，Atomic 需真实契约才可 check/verify；两种情况都按 Skill 的完成条件报告状态。
 
-## 需要私有源码核对的项目
+## 真实源码校准（2026-10-19）
 
-按本次受影响调用链请求以下具体文件或签名，无需索取整个仓库：
+源码基线：业务主分支 `b72b55e4b89d9c3886f409e70560fa6a9a405559`、L2EVPN 分支 `4d30ac120741804331ac624e7e79cb59c198978d`；工具基线 `186568d`（0.7.2）。已逐文件比较的 Query/Modify Handler、Facade 接口/实现、Delegate、两个 service Converter 共七个文件完全一致。未为演练重建这些接口。
 
-1. Query/Modify ReqDto、RspDto、内部 L2evpnEvplNodeDto，以及 service REST 请求响应。
-2. 对应 Facade 接口/实现、Query/Modify Handler、Delegate、请求/响应/节点 Converter 与已有定向测试。
-3. EVPL Get/Modify Atomic 接口、各受影响版本实现、Latest、版本注解及管理器选择/注册约定。
-4. Handler 基类与 BasicApiContext 的泛型、生命周期及 run 签名；内部/外部异常构造器、getErrMsg/cause；组件管理器 getFacadeImpl、组件/注入注解；日志工厂、entry()/ret() 的实际签名。
-5. 相关公共/实现/service 模块 POM、父 modules、dependencyManagement、classifier、MapStruct processor/binding 与测试框架版本。
-6. 有兼容性变更时，ObjectMapper 设置、消费者/JSON 基线、历史默认值与首次支持版本证据。
+### 源码依据与模板差异
 
-这些资料未核对前，只能报告通用模板/检查器验证，不能报告 L2EVPN 业务集成通过。
+下表路径按模块/文件名定位；以文件 package 声明为准，物理目录前缀不可用于推断 Java 包名。
 
-## 本轮工具源码校准与验证
-
-本节基于工具仓 `6d86d0a` 的源码及随后新增的回归测试。当前会话没有私有 L2EVPN 业务源码、依赖 JAR、POM 或历史测试快照；不能列出它与真实签名的确定差异，更不能确认本例字段或首次支持版本。
-
-### 源码依据与需要调整的指引
-
-| 核对项 | 已读取的工具源码 | 结论及最小边界 |
+| 源码依据 | 当前事实 | 指引/模板应如何使用 |
 |---|---|---|
-| Handler/Context | app/handler.java.tpl、Generator.validateFramework、Fixtures.framework | 模板固定双泛型、嵌套 BasicApiContext 和三阶段；预检只查方法名，不能证明私有基类的签名/可见性兼容 |
-| 异常/组件管理器 | app/delegate.method.java.tpl、Generator.validateFramework | 模板直接用 String 构造器、getErrMsg、initCause、getFacadeImpl(Class)；自动预检未完整证明这些签名，需真实编译/运行 |
-| 日志 | LoggingSupport.validate/decorate | 自动日志支持静态工厂(Class)→配置日志类型，以及无参 entry/ret；不能据此断言私有日志工厂满足要求 |
-| Atomic 注册/Latest | AtomicContract、AtomicTool.plan/check、atomic/interface/implementation/latest 模板 | 只验证契约声明的注解和继承形状；不自动证明真实管理器发现、最新支持或历史不支持 |
-| App 复用已有类 | Contract.validate、Conventions.location、Generator.target/addMethod、IncrementalAppTest | 契约 target 能指向已有类名；包必须符合各角色 packagePrefix + business、sourceRoot 等约束。新方法兼容时可增量插入；同签名旧方法业务体不同则冲突保护，不覆盖 |
-| Atomic 补支持版本 | TemplateWorkflowTest.addingVersionToImplementedAtomicDoesNotOverwriteHistoryOrWritePartialFiles | 历史实现已有业务体时，全量 generate 拒绝；已验证手工只添版本、更新 class Latest、扩充 releases 后可编译，旧实现不变，新版本占位仍被阻塞 |
+| api-atomic-common/.../apihandler/ApiHandler.java:18,36–53,107 | 双泛型 ApiHandler<I,O>；protected BasicApiContext preHandler(I)、invokeAtomicApi(BasicApiContext)、O postHandler(BasicApiContext)；public O run(I)，均 throws OpsApiException；Context 为 protected static | 三阶段骨架相符。实际基类为异常追加阶段与请求；非 OpsApiException 会被转成 RuntimeException，不能宣称任意错误都会保留 cause |
+| common/.../exception/OpsApiException.java:18–55 | extends ServiceException；String 构造器保存 errMsg；Lombok @Getter 生成 getErrMsg；getMessage 另加类/方法前缀 | 源码解析不执行 Lombok，getAllMethods 可能漏 getter；不能为过预检改异常或手写重复 getter。外部错误文本沿用 getErrMsg，不擅改为 getMessage |
+| common/.../component/OpsComponentManagement.java:12–14 | `<T> T getFacadeImpl(Class<T> intf)` | 与 Delegate 模板泛型入口相符；参数是 Facade 接口 Class |
+| common/.../annotation/OpsFacadeInterface.java；function-sdk/.../OpsComponentManagementImpl.java:89–167 | 注解在实现类上，元注解 Component；运行器 initFacadeInterfaces 扫描并匹配注册接口 | 不是给 Facade 接口加该注解；现有 disableMap 已注册 OpsIpranFaultL2evpnFacade。增量方法复用原注册，不另造实现 Bean |
+| api-atomic-common/.../atomicapi/AtomicApiManagement.java:31–69；AtomicApi.java:23–48；EvplApiOperation.java:17–19 | @AtomicApi(category,oper,superInterface)；管理器按 Class 唯一注册，不做版本排序；EVPL 操作 getEvpl/modifyEvpl 已定义 | 补版本时移交 Latest 注册；不能给所有历史实现补注解造成重复注册 |
+| AtomicApiGetEVPLInterface.java:21–35；AtomicApiGetEVPLR26C10.java:21–28 | 嵌套 Latest extends R26C10 extends R26C00；新实现 extends 旧实现 implements Latest,R26C10 | 当前独立 Latest 类型模板、固定命名和每 release 非空注解都不能如实表达此结构。手工增量，不把 interface 模式误当已经兼容 |
+| AtomicApiModifyEVPLInterface.java:11–19；AtomicApiModifyEVPLR26C10.java:16–25 | 修改接口从 R26C10 开始；String modifyEvplServiceId(ModifyEvplServiceIdReqDto) throws OpsApiException | 不凭空加 R26C00，不强改 String 为通用 RspDto |
+| L2EVPN Facade、ApiHandler、AtomicApiManagement 的日志声明 | 实际 @Slf4j 或 org.slf4j.LoggerFactory.getLogger(Class)，未见 entry/ret 调用 | 已通过实际 slf4j-api 2.0.17 JAR 的 javap 核实 Logger 无 entry/ret、工厂有 getLogger(Class)。该方案不满足自动日志要求；保留实际 API 并标明待适配，不伪造 entry/ret 或改 profile 声称已满足 |
+| service/.../NetChatOpsApiFaultL2EvpnIpranDelegateImpl.java:33–60 | 查询公开返回 List<L2EvpnEvplNode>，失败包装 ServiceException 并 initCause；修改公开返回 String，OpsApiException 转失败字符串 | 查询不能套“构造外部响应对象并 setter”模板；修改保持 message 模式。两者不可被统一异常改写 |
+| service/.../IpranFaultL2evpnResponseConverter.java:26–58 | 查询逐节点映射，拒绝 null 响应/列表/节点；修改拒绝缺失或空白 message | 保留 MapStruct 严格目标策略、内部节点及列表映射。复杂转换走既有 Converter 增量 |
 
-本轮把“固定默认类名必然无法复用”修正为“默认命名与实际契约 target 分开；角色包结构和成员兼容性仍有限制”。并删除 App 字段格式示例中未证实的 neId:String，避免它被当成 L2EVPN 契约。
+根 AGENTS/knowledge-spec 部分模块位置仍是旧结构，而本次已读源码公共类型位于 api-atomic-common / ipran-app-api-common。已有接口不搬迁；新建结构与仓库硬规则冲突时，须列出具体冲突后解决。主分支也已将 L2EVPN parent.version 更新到 16.10.346；旧特性分支为 16.10.340，跨分支操作须重新核对，不能写死案例版本。
 
-### TestPlan 接入记录
+### 新方法复用已有 Facade/Delegate
 
-使用本工具仓真实依赖：`tools/cli/pom.xml` 的 JUnit Jupiter 5.11.4、Maven Surefire 3.5.2；源文件为 `tools/cli/src/test/java/dev/atomic/AppTestPlanTest.java`。它由 App 待办的四类场景接入 @Test，去掉 main/static，先保留失败体，再补调用和断言。
+1. 先读真实公开参数，包括 HttpContext 和请求对象；已有方法体保留。复用现有 Facade 接口/实现、Delegate 和请求/响应 Converter，仅添加本次操作所需成员。
+2. 新 Handler 参考已确认的三阶段签名：pre 校验并构造 Atomic 请求，invoke 通过 getAtomicApi(Interface.Latest.class) 调用，post 校验转换结果；每次请求状态存在 Context。
+3. 只有实际 target、角色包位置、外部响应及公开参数均适配才 dry-run/apply。本例 List 返回、Lombok getter 解析及嵌套节点使整套生成不适用；手工增量，不能调整既有公开签名来凑模板。
+4. 本次未新增业务方法，仅核对真实路径；工具仓 IncrementalAppTest 另外验证兼容合成结构可以复用目标类、保留旧方法体。不能据此宣称任意真实类都可自动增量。
 
-本次执行环境的实际命令如下，红阶段与绿阶段相同：
+### 真实业务测试接入
 
-```text
-python /workspace/scratch/649129bc1ddd/build-tools/mvn_env.py -B -f tools/cli/pom.xml -Dtest=AppTestPlanTest test
+在 L2EVPN 分支的 `ipran-app-api-fault/ipran-app-api-fault-l2evpn/src/test/java/.../handler/L2evpnHandlerTest.java` 接入四个 Handler 场景。真实框架为 JUnit 4.13.2、Surefire/surefire-junit47 2.22.2；JDK 21.0.11、Maven 3.9.0。通过项目真实依赖编译，Mockito 只模拟 AtomicApiManagement 和具体 Latest，不调用网络。
+
+按业务仓 `.docs/本地maven构建.md` 在同一 PowerShell 中设置 JAVA_HOME、mavenExe、mavenCommonArgs（含真实 settings、本地仓库、container、离线、禁用颜色）；红绿阶段执行同一命令：
+
+```powershell
+& $mavenExe @mavenCommonArgs -pl ipran-app-api-fault/ipran-app-api-fault-l2evpn -am test '-Dtest=L2evpnHandlerTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-Dmaven.test.failure.ignore=false' '-Dsurefire.rerunFailingTestsCount=0'
 ```
 
-该环境已有适配器仅用于调用 Maven；通常维护环境的对应命令为：
-
-```text
-mvn -B -f tools/cli/pom.xml -Dtest=AppTestPlanTest test
-```
-
-| 阶段 | 退出码 | Tests | Failures | Errors | Skipped | 证明 |
+| 阶段 | 退出码 | 执行 | 失败 | 错误 | 跳过 | 完成时间（UTC+8） |
 |---|---:|---:|---:|---:|---:|---|
-| 红：四个 AssertionError 占位 | 1 | 4 | 4 | 0 | 0 | Surefire 确实发现用例；每项因 TEST_IMPLEMENTATION_REQUIRED 失败 |
-| 绿：替换为实际调用和断言 | 0 | 4 | 0 | 0 | 0 | 生成代码在合成框架中可编译并被调用，不是零用例或跳过 |
+| red-confirmed：保留失败占位 | 1 | 4 | 4 | 0 | 0 | 2026-10-19 15:41:33 |
+| green-verified：真实调用和断言 | 0 | 4 | 0 | 0 | 0 | 2026-10-19 15:44:28 |
 
-绿阶段实际断言：
+七个 Reactor 模块全部构建通过。四项实际断言：
 
-- legalRequestUsesCorrectAtomicAndStages：运行生成 Handler.run，断言返回字段和底层调用次数。
-- invalidInputDoesNotCallAtomic：null/空/空白参数失败，底层调用次数为 0。
-- conversionPreservesMappedFieldAndRejectsNull：调用生成的响应 Converter，断言映射值和 null 响应异常。名称有意缩小，不宣称覆盖尚未测试的集合顺序、全部默认值或 wire。
-- eachBoundaryFailurePreservesCause：在合成夹具中分别制造请求转换、Facade、响应转换失败，真实调用生成 Delegate，断言外部异常、每个阶段对应的内部 cause 消息及包装消息保留；同时断言请求转换失败不调用 Facade，后两种失败确实调用一次 Facade。
+- Query Handler.run 捕获真实 Atomic 请求 neId/evplId；两个节点八字段全部映射且顺序不变。
+- null 请求、缺失 neId/evplId 在 pre 阶段失败，管理器零交互；校验 getErrMsg 和阶段信息。
+- 响应、service、容器、列表逐层缺失及 null 节点在 post 阶段报对应原因；显式空列表返回非 null 空结果。
+- Modify Handler.run 捕获 neId、evplId、不同的 localServiceId/remoteServiceId；底层空正文仍返回既有成功说明。
 
-用例内编译运行的是本仓生成的 Java 类，底层/框架来自显式合成夹具，不是私有 Atomic 版本或真实注册容器。测试报告默认输出在 `tools/cli/target/surefire-reports/TEST-dev.atomic.AppTestPlanTest.xml` 及同名文本报告；每次运行可能覆盖，应在验证时分别保存红/绿报告，不能从最终绿文件反推红阶段。
+日志和分阶段报告保存在业务分支 `.atomic-api/work/source-calibration-20261019/`：`red-confirmed-status.json`、`red-confirmed.log`、`green-verified-status.json`、`green-verified.log`，以及对应前缀的 Surefire XML/文本报告。正式报告原位为本模块 target/surefire-reports 下的 L2evpnHandlerTest 报告。本次修复了长路径归档，并按报告时间排除编译失败后残留的旧报告；中途编译错误不能计作红阶段发现成功或绿阶段执行成功。
 
-增量路径实际命令（本环境同样通过上述适配器调用）：
+### 已验证与仍未验证
 
-```text
-mvn -B -f tools/cli/pom.xml -Dtest=IncrementalAppTest,TemplateWorkflowTest test
-```
+已验证上述静态源码事实、真实 Handler/DTO/MapStruct 代码编译，以及四项 Handler 行为。Query/Modify Handler、Facade 接口/实现、Delegate、请求/响应 Converter 共七个文件已比较，未修改生产实现。
 
-结果：退出 0；5 个用例，0 failure/error/skip。其中包含旧 App 方法不变、新操作占位被阻塞，以及历史 Atomic 不覆盖、手工补版本的回归。
+未验证：真实 Spring/Atomic 注册容器启动和运行时版本选择、Delegate 的三处失败执行、REST JSON 序列化/未知字段策略及真网元调用、历史部署支持范围、弱模型独立完成新增任务。这里不把 mock Latest 说成真实管理器选版通过，也不把当前接口声明当作历史支持证明。
 
-### 未验证项：不得转写为业务结论
-
-- L2EVPN Handler/Context、异常、管理器、日志工厂、注册/Latest 的真实签名与当前分支行为。
-- 查询/修改字段类型、必填条件、写入本端还是远端、节点八字段以及 null/空集合、顺序、默认值和旧错误契约。
-- 私有业务测试框架版本、TestPlan 在实际业务模块的发现和执行、真实版本选择、REST/JSON 基线及项目 Reactor。
-
-要完成这些项，需提供前节列出的相关源码/签名与同模块一个已执行测试及 POM。没有这些输入时，本轮只能报告“工具框架测试接入和合成回归已验证”，不能声称“L2EVPN 业务集成通过”。升级已安装文件仍须比较合并定制；init 不覆盖旧文件。
+当前工具 check/verify 对本例的完整适配仍未完成。升级已安装 Skill 要比较合并定制；init 不覆盖旧文件。后续分支变动时重新读取本节引用源码和同模块实际测试。

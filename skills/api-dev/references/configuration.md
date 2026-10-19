@@ -31,7 +31,18 @@
 | 日志 | LoggingSupport.validate 检查工厂静态/Class 参数/返回类型及无参 entry/ret | 真实工厂是否采用此签名、可访问性、日志重载/载荷与运行效果 |
 | Atomic 注册/Latest | AtomicTool 校验契约注解、已配置继承关系 | 实际首次支持版本、注册器发现、管理器选择、历史不支持行为 |
 
-不要把“清单已写出要求”理解成“工具已自动证明全部要求”。本轮源码范围与红绿测试结果见 [校准记录](l2evpn-example.md#本轮工具源码校准与验证)。
+不要把“清单已写出要求”理解成“工具已自动证明全部要求”。本轮源码范围与红绿测试结果见 [校准记录](l2evpn-example.md#真实源码校准2026-10-19)。
+
+## 本项目已确认的适配边界
+
+L2EVPN 的 Handler 双泛型、protected BasicApiContext 生命周期及组件管理器泛型签名已通过源码核对，实际 Handler.run 测试也已接入。以下限制仍存在：
+
+- `OpsApiException.getErrMsg()` 来自 Lombok @Getter；源码解析器没有执行注解处理，按 getAllMethods 查不到时不代表生产代码缺少 getter。保留 Lombok，采用手工增量和真实编译证明；不要手写重复 getter 或改异常类型来迎合预检。
+- App 查询返回 List，生成器的外部响应 setter 模型不适用；Atomic 使用嵌套版本接口链，当前两种平面模型均不适用。
+- 当前实际日志为 SLF4J，ApiHandler 使用 @Slf4j，Facade 使用 LoggerFactory.getLogger(Class)。没有 entry/ret 方法的 API 不能配置为自动日志方案。日志规范待适配须显式报告。
+- 仓库 AGENTS/knowledge-spec 中部分旧模块位置（例如 Facade 仅 function-sdk、Atomic 公共类型在 api-common）与当前源码不一致。已有类增量保留真实位置，不自动搬迁；新增结构如与仓库硬规则冲突，明确列出文件和冲突后处理。
+
+具体源码、字段和验收范围见 [真实源码校准](l2evpn-example.md#真实源码校准2026-10-19)。
 
 ## App profile
 
