@@ -34,7 +34,7 @@ description: 用于本项目 Java API 的新增、修改、支持版本扩展和
 - 公共接口/DTO 与实现分层；App 与 Atomic 分别归属公共模块，公共 DTO 不反向依赖 service/Handler/实现。类名、包和源码根遵循真实项目及 roles。
 - App Facade 只编排 Handler；pre 校验并构建请求，invoke 获取能力并调用，post 校验转换响应；请求状态放 Context。请求/响应 Converter 分开且只做映射，Delegate 连接转换和调用，并保持同一异常边界。Builder 仅用于真实汇总。
 - 每个具体 Helper 只有一个 public 业务入口（含继承，排除 Object 方法与构造器），辅助方法私有。已有继承保持框架约定；新增具体 Handler/Helper 可按项目约定用单类 Component。
-- 中文注释说明业务意图、判断优先级，缩写展开。先核对真实日志 API；支持 entry()/ret() 时在入口及每个显式 return/throw 前成对调用。不支持时保留既有日志方式并列出待适配项，不发明日志方法/包装器，不为日志强加 try-catch，不记录凭据，保留实际版权头。
+- 中文注释说明业务意图、判断优先级，缩写展开。先核对真实日志 API；支持 entry()/ret() 时在入口及每个显式 return/throw 前成对调用。不支持时保留既有日志方式，列出 N13（Atomic 为 A06）未满足项、日志类型/签名、受影响方法及待适配项，不发明日志方法/包装器，不为日志强加 try-catch，不记录凭据，保留实际版权头。
 - 异常消息用可诊断英文，保留底层原因、getErrMsg/cause；格式化用 Locale.ROOT。不同失败原因分别表达，同因 null/空判断可短路合并。
 - 保持公开接口、JSON 名/别名/未知字段策略、默认值、字段类型、集合顺序、null/空集合和错误语义。专属节点用响应 DTO 的 public static 内部类；跨契约共享才用顶层 DTO。已有 MapStruct 遵守 INSTANCE、严格目标策略及项目处理器配置。
 - Atomic 的注册、Latest、版本顺序和首支持版本取自实际框架与历史证据。新模块接好 modules/dependencyManagement/消费依赖/classifier，合主线后核对 parent.version。

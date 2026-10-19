@@ -52,7 +52,7 @@ final class AtomicTool {
             "校验显式继承关系；契约末版本是否最新及历史不支持路径需审查。"),
         rule(
             "A06",
-            "Helper 保持单一 public 业务入口；沿用中文意图注释、英文异常、真实 entry/ret 日志 API，不为 ret 强造 try-catch；不泄露凭据。",
+            "Helper 保持单一 public 业务入口；沿用中文意图注释、英文异常；日志按 N13 核对真实 API，不支持时记录 A06 未满足及依据，不造包装器或 try-catch；不泄露凭据。",
             "conventions",
             "PARTIAL",
             "WHEN_LOGGING_CONFIGURED",

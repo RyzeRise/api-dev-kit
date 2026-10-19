@@ -102,9 +102,13 @@
 
 按业务仓 `.docs/本地maven构建.md` 在同一 PowerShell 中设置 JAVA_HOME、mavenExe、mavenCommonArgs（含真实 settings、本地仓库、container、离线、禁用颜色）；红绿阶段执行同一命令：
 
+执行前先确认**当前目标分支存在该测试类**，且其 package、类名和四个测试方法可被本项目运行器发现。这里的测试文件是本次本地接入产物，不保证其他检出分支已有它。
+
 ```powershell
 & $mavenExe @mavenCommonArgs -pl ipran-app-api-fault/ipran-app-api-fault-l2evpn -am test '-Dtest=L2evpnHandlerTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-Dmaven.test.failure.ignore=false' '-Dsurefire.rerunFailingTestsCount=0'
 ```
+
+`failIfNoSpecifiedTests=false` 只用于让 Reactor 中没有该类的依赖模块继续，**也可能使目标类缺失时零用例退出 0**。因此成功必须同时满足：退出码 0、目标模块本轮 Surefire 报告时间不早于启动时间、测试类全名正确、四个指定场景均实际执行（tests=4、failures/errors/skipped=0）。缺类、缺新报告、零用例、场景缺失或跳过均算未完成验证；不能只看 BUILD SUCCESS。扩展用例后按实际场景名单核对，不机械写死四项。
 
 | 阶段 | 退出码 | 执行 | 失败 | 错误 | 跳过 | 完成时间（UTC+8） |
 |---|---:|---:|---:|---:|---:|---|

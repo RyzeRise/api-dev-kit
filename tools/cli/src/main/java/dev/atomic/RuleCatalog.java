@@ -158,11 +158,12 @@ public final class RuleCatalog {
         r(
             "N13",
             "api-dev/references/rules.md",
-            "业务方法入口 entry，每个显式 return/throw 前 ret；不为 ret 强加 try-catch。",
+            "先核对真实日志 API；支持时业务方法入口 entry、每个显式 return/throw 前 ret，不为 ret 强加 try-catch；不支持时保留原 API，记录"
+                + " N13 未满足及源码依据，不造包装器。",
             "CodeRules.logging / LoggingSupport.validate",
             "PARTIAL",
             "WHEN_LOGGING_CONFIGURED",
-            "须配置真实 logging API；不证明隐式异常路径，缺配置报告待验证。",
+            "须配置真实 logging API；缺配置报告 NOT_VERIFIED，不证明隐式异常路径；API 不支持时列出日志类型/签名、受影响方法及待适配项，不计规范通过。",
             "N13"),
         r(
             "N14",

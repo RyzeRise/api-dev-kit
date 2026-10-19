@@ -40,7 +40,13 @@ sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api
 
 ## 4. 为已有能力补一个支持版本
 
-当前没有“只生成新版本”命令，全量 generate 会对历史真实实现报冲突。安全路径是：
+先按真实源码分流，只走对应路线：
+
+- **平面模型**：独立 Latest 接口/类且契约能如实表达全部版本，使用下方通用表。
+- **L2EVPN 嵌套模型**：外层接口内有 Latest 与版本继承链，直接跳到[嵌套版本增量路线](#本项目嵌套版本接口的增量路线)，跳过通用表及完整契约 verify；当前工具尚不支持该结构。
+- 无法确定模型时先查接口、实现和注册器，不能通过改造业务结构来凑契约。
+
+平面模型当前没有“只生成新版本”命令，全量 generate 会对历史真实实现报冲突。安全路径是：
 
 | 顺序 | 必做项 |
 |---|---|
@@ -54,11 +60,24 @@ sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api
 
 以当前 EVPL 查询源码为结构依据：
 
-1. 在既有外层接口内添加 `interface R新版本 extends R旧版本`；本版本新增方法只放到对应版本。没有历史支持证据时，不往旧接口回填新能力。
-2. 新实现 `extends 旧实现`，实现外层接口的 `Latest` 与新版本接口；保留旧实现全部业务体。当前最新实现已经实现 Latest，更新 Latest 链后须编译全部受影响实现，不能只编译新类。
-3. 将嵌套 Latest 的 extends 更新为真实最新支持接口；不是本工具平面 interface 模式的“通常不改继承”。
-4. 按实际注册器把同一个 Latest 注册键移到新实现；旧实现撤掉该键的注册注解，不删除旧类/方法。核对 category/oper 枚举。`AtomicApiManagement.init` 不按版本名排序，而是按 superInterface 唯一注册；两个实现同时注册同一个 Latest 会冲突。
-5. 通过真实管理器/版本测试验收。当前 Atomic 契约固定独立 Latest 类型及每 release 注解，不能如实描述此形状；报告未完成工具验收，不伪造 YAML 让 check 变绿。
+1. 记录当前 Latest 指向、全部实现类头、注册键和业务方法体；搜索 `Latest`、旧实现的构造/注入、强转及 `instanceof`。确认消费者通过管理器取 Latest，还是把旧类直接当作 Latest 使用；后一种需要迁移消费者并验证兼容，不能直接删绑定后交付。
+2. 在既有外层接口内添加 `interface R新版本 extends R旧版本`，本版本新增方法只放到对应版本；是否提供“不支持”的 default 方法沿用真实契约，不为让旧类编译而补空实现或假成功。
+3. **旧最新实现退出 Latest 绑定**：从旧类的 implements 中移除 `外层接口.Latest`，保留 `外层接口.R旧版本`、原父类和全部业务方法体；若 Latest 经父类继承，沿继承链一并解除旧实现上的 Latest 绑定。不能只撤注册注解。否则新版本新增抽象方法后，旧类也必须实现它；即使新增方法有 default，也不让旧类继续冒充最新能力。
+4. 新实现 `extends 旧实现 implements 外层接口.Latest, 外层接口.R新版本`，只新增或覆盖本版本真实变化；再把嵌套 Latest 的 extends 指向新版本接口。旧行为沿原方法继承，不把新能力回填历史接口。
+5. 把同一个 Latest 注册键移到新实现；旧类撤掉该键的注册注解，保留其他真实注册。核对 category/oper 枚举。`AtomicApiManagement.init` 按 superInterface 唯一注册，不按版本名排序；两个实现同时注册同一个 Latest 会冲突。
+6. 编译全部受影响实现与消费者。若旧类仍报新增抽象方法未实现，检查残留的直接/继承 Latest；若是历史版本自己的抽象方法未实现，修复真实实现或确认契约，不补空成功。测试旧类仍实现历史接口且不再属于 Latest、新类属于 Latest、继承的历史结果不变、新方法真实执行；另外用真实容器验证唯一注册。
+
+以下是类头调整示意，`R新版本` 仅为占位名称，须替换为有支持证据的真实版本，不能据此猜测下一个产品版本：
+
+| 位置 | 升版后关系 |
+|---|---|
+| 旧 R26C10 实现 | `extends AtomicApiGetEVPLR26C00 implements AtomicApiGetEVPLInterface.R26C10`；历史业务体不变 |
+| 新实现 | `extends AtomicApiGetEVPLR26C10 implements 外层接口.Latest, 外层接口.R新版本` |
+| 嵌套 Latest | `extends R新版本`；只有新实现注册该 Latest 键 |
+
+这是源码结构推导的升版方案，尚未在业务分支新增真实产品版本。移除旧类的接口归属可能影响依赖旧类可赋值为 Latest 的源码或已编译消费者，必须检查并重编译；不能宣称二进制兼容。工具仓 `NestedVersionEvolutionTest` 仅用合成版本复现编译失败、验证修复后的类型与历史行为，不替代业务容器验收。
+
+当前 Atomic 契约固定独立 Latest 类型及每 release 注解，不能如实描述此形状；按真实项目编译/版本测试交付，并报告“未完成工具验收”，不伪造 YAML 让 check 变绿。
 
 新增 App 方法只需复用已有 Atomic 时，不执行以上版本扩展。源码位置和真实签名见 [L2EVPN 校准](l2evpn-example.md#真实源码校准2026-10-19)。
 
@@ -68,6 +87,8 @@ sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api
 现有结构不兼容时保留代码，列出不适配点与具体缺失签名，按实际项目编译测试并报告“未完成工具验收”。Atomic check 和 verify 都要求契约，不存在无契约自动发现全部版本的命令。
 
 ## 5. 验证版本和接线
+
+下方 verify 命令仅适用于已适配契约的平面模型；嵌套模型按上一节编译、消费者及容器测试验收。
 
 ```text
 sh .atomic-api/tool/atomic-api.sh verify --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --format json
