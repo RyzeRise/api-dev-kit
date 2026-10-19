@@ -1,20 +1,19 @@
-# Atomic API Pattern
+# API Dev Kit
 
 让 Code Agent 按项目规范生成、检查 Java API。只需向 Agent 描述任务并指定 skill 文件；命名、目录和部分分层约束由工具执行。
 
-## 仓库只保留三部分
+## 仓库结构
 
 | 位置 | 存在理由 |
 |---|---|
 | `skills/` | 两份开发指令，各一个 SKILL.md，没有平台元数据或附属说明文件。 |
 | `tools/` | 代码生成/检查工具的入口、Java 实现、模板、schema，以及保证其正确性的测试和打包程序。 |
-| `.github/workflows/` | 在 Linux/Windows 验证工具，并产出可直接运行的 ZIP。 |
 
 根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.6.0。
 
 ## 放进业务仓库
 
-从 [成功的 GitHub Actions 构建](https://github.com/RyzeRise/atomic-api-pattern/actions/workflows/build-java.yml) 下载 `atomic-api-cli` 产物，解开其中的 ZIP，把包内 `atomic-api/` 整个目录放到业务仓库的 `.atomic-api/tool/`。不能只复制入口脚本，配套 JAR 也必须保留。
+获取维护者提供的 `atomic-api-cli.zip`，或按下文“工具维护与试用”从源码构建并打包。解压 ZIP，把包内 `atomic-api/` 整个目录放到业务仓库的 `.atomic-api/tool/`。不能只复制入口脚本，配套 JAR 也必须保留。工具命令和包内目录仍使用 `atomic-api`。
 
 在**业务仓库根目录**执行一次：
 
@@ -80,7 +79,7 @@ verify 退出 0/STRUCTURE_READY 只表示覆盖范围内结构可接受，业务
 
 ## 工具维护与试用
 
-源码 clone 不含 JAR；维护工具需要 JDK 17、Maven，构建后直接运行 tools 内入口，无需安装：
+从任意 Git 托管平台克隆或下载的源码不含 JAR。维护工具需要 JDK 17、Maven 和 Python 3；在本仓库根目录执行以下命令，构建后直接运行 tools 内入口，无需安装：
 
 ```bash
 mvn -f tools/cli/pom.xml clean verify
@@ -90,6 +89,14 @@ python -m unittest discover -s tools/tests -v
 python tools/package.py
 ```
 
-Python 仅用于维护测试/打包，使用标准库，无 pip 依赖。Windows 用 `tools/atomic-api.cmd`，CI 运行 `tools/tests/windows.ps1`。产物为 `tools/dist/atomic-api-cli.zip`。demo 使用虚构框架，不连接真实系统；包中的模板和旧契约用于生成及回归测试，不是另外一套开发规范。
+Python 仅用于维护测试/打包，使用标准库，无 pip 依赖。产物为 `tools/dist/atomic-api-cli.zip`，可通过团队文件共享或所用托管平台的制品服务分发。
+
+Windows 用 `tools/atomic-api.cmd`。在 Windows PowerShell 中，从本仓库根目录执行以下命令验证便携包（先完成上述构建和打包）：
+
+```powershell
+& ./tools/tests/windows.ps1
+```
+
+自动构建系统可执行相同的构建、测试和打包命令；Windows 检查需在 Windows 执行环境中运行。demo 使用虚构框架，不连接真实系统；包中的模板和旧契约用于生成及回归测试，不是另外一套开发规范。
 
 仓库不包含私有业务源码或凭据。各业务仓库保留自己的 profile/contracts；普通复制不会随工具仓库 git pull 自动同步，当前版本没有自动同步/自动重编译机制。
