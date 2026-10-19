@@ -1,0 +1,302 @@
+package dev.atomic;
+
+import java.util.*;
+
+/** Every normative row has an executable check route and an explicit proof boundary. */
+public final class RuleCatalog {
+  public record Rule(
+      String id,
+      String skill,
+      String requirement,
+      String checker,
+      String coverage,
+      String generator,
+      String limitation,
+      List<String> diagnostics) {}
+
+  public record Result(
+      String id,
+      String status,
+      String checker,
+      String generator,
+      String limitation,
+      List<String> evidence) {}
+
+  static Rule r(
+      String id,
+      String skill,
+      String text,
+      String checker,
+      String coverage,
+      String generator,
+      String limit,
+      String... diagnostics) {
+    return new Rule(id, skill, text, checker, coverage, generator, limit, List.of(diagnostics));
+  }
+
+  public static List<Rule> all() {
+    return List.of(
+        r(
+            "N01",
+            "atomic-api-dev",
+            "类名、包与源码目录服从项目 roles，不猜目录或把公共契约放入 SDK。",
+            "StrictChecks.check / Conventions.validate",
+            "AUTO",
+            "FIXED",
+            "以本操作 contract/profile 为范围。",
+            "STRICT-001",
+            "CONTRACT"),
+        r(
+            "N02",
+            "atomic-api-dev",
+            "Facade 使用单个业务 ReqDto/RspDto，字段名称和类型符合契约。",
+            "Checker.signature / compare",
+            "AUTO",
+            "FIXED",
+            "字段业务含义另见 N20。",
+            "API-002",
+            "CONTRACT"),
+        r(
+            "N03",
+            "atomic-api-dev",
+            "请求和响应 Converter 分开；Delegate 实际使用两者，不直接组装 REST 响应。",
+            "StrictChecks.delegate / converter",
+            "AUTO",
+            "FIXED",
+            "检查指定转换器及可追踪辅助方法。",
+            "STRICT-002",
+            "STRICT-003",
+            "API-001"),
+        r(
+            "N04",
+            "atomic-api-dev",
+            "Facade 只编排 Handler；单步直接返回，Builder 只用于真实汇总。",
+            "StrictChecks.facade / Checker.checkHandlerCalls",
+            "PARTIAL",
+            "SCAFFOLD",
+            "汇总是否有业务意义需审查。",
+            "STRICT-004",
+            "API-004"),
+        r(
+            "N05",
+            "atomic-api-dev",
+            "pre 校验并建请求，invoke 获取能力并调用，post 校验转换响应；状态放 Context。",
+            "StrictChecks.lifecycle",
+            "PARTIAL",
+            "SCAFFOLD",
+            "仅识别常见错位，业务职责需审查。",
+            "STRICT-005"),
+        r(
+            "N06",
+            "atomic-api-dev",
+            "公共 DTO 不反向依赖 service、Handler 或实现层；App/Atomic 模型分别归属公共模块。",
+            "StrictChecks.check / CodeRules.dependencies",
+            "PARTIAL",
+            "FIXED",
+            "外部依赖 JAR 和所有历史消费者需审查。",
+            "STRICT-006",
+            "N06"),
+        r(
+            "N07",
+            "atomic-api-dev",
+            "真实调用未实现时保留明确占位，不以 null、空 DTO 或删标记伪装完成。",
+            "StrictChecks.lifecycle / Checker.check",
+            "PARTIAL",
+            "SCAFFOLD",
+            "无法证明调用有真实业务效果。",
+            "STRICT-007"),
+        r(
+            "N08",
+            "atomic-api-dev",
+            "请求、Facade 和响应适配置于异常边界；保留内部业务异常、getErrMsg、cause 及 String 错误形式；独立失败原因分别表达，同因"
+                + " null/空检查可短路合并。",
+            "Checker.boundary / StrictChecks.delegate",
+            "PARTIAL",
+            "FIXED",
+            "历史消息兼容需基线资料。",
+            "API-006",
+            "API-007",
+            "STRICT-008",
+            "API-008"),
+        r(
+            "N09",
+            "atomic-api-dev",
+            "响应转换前校验完整性，保留 null/空集合、顺序、类型与默认值。",
+            "Checker.responseBoundary / compare",
+            "PARTIAL",
+            "SCAFFOLD",
+            "历史默认值及全部边界行为需对照测试。",
+            "API-009",
+            "CONTRACT"),
+        r(
+            "N10",
+            "atomic-api-dev",
+            "Facade 注解、默认方法和已配置的禁用注册须完整，重构不改变既有注册行为。",
+            "CodeRules.registration",
+            "PARTIAL",
+            "FIXED",
+            "动态注册和既有行为需运行验证。",
+            "N10"),
+        r(
+            "N11",
+            "atomic-api-dev",
+            "每个具体 Helper 仅有一个 public 业务方法（含继承，排除继承自 Object 的方法和构造器）；其他辅助方法私有化。",
+            "CodeRules.helpers",
+            "AUTO",
+            "NOT_GENERATED",
+            "只检查本业务包或从目标类可追踪的 Helper；继承关系无法解析即 INCOMPLETE。",
+            "N11"),
+        r(
+            "N12",
+            "atomic-api-dev",
+            "新增具体 Handler/Helper 可用单类 Component，不强造父子类；已有继承保持框架约定。",
+            "CodeRules.components",
+            "PARTIAL",
+            "HANDLER_FIXED",
+            "检查组件标识和抽象 Handler；是否新增及继承兼容需基线。",
+            "N12"),
+        r(
+            "N13",
+            "atomic-api-dev",
+            "业务方法入口 entry，每个显式 return/throw 前 ret；不为 ret 强加 try-catch。",
+            "CodeRules.logging / LoggingSupport.validate",
+            "PARTIAL",
+            "WHEN_LOGGING_CONFIGURED",
+            "须配置真实 logging API；不证明隐式异常路径，缺配置报告待验证。",
+            "N13"),
+        r(
+            "N14",
+            "atomic-api-dev",
+            "注释用精炼中文解释业务意图，函数注释说明优先级；英文缩写在说明中给出全拼。",
+            "CodeRules.comments",
+            "PARTIAL",
+            "CHINESE_SKELETON_DOCS",
+            "仅检查有无中文说明；意义、精炼程度、优先级和缩写准确性待审查。",
+            "N14"),
+        r(
+            "N15",
+            "atomic-api-dev",
+            "异常文本用可诊断的英文，包含操作及底层原因；格式化使用 Locale.ROOT。",
+            "CodeRules.messages / Checker.boundary",
+            "PARTIAL",
+            "FIXED",
+            "只检查字面量语言和 format 的 Locale，诊断充分性待审查。",
+            "N15",
+            "API-007"),
+        r(
+            "N16",
+            "app-api-dev",
+            "单响应专属节点使用 RspDto 的 public static 内部类；真实跨契约共享才用顶层 DTO。",
+            "CodeRules.nodes",
+            "PARTIAL",
+            "NOT_GENERATED",
+            "检查内部节点修饰符；是否专属或共享需消费者证据。",
+            "N16"),
+        r(
+            "N17",
+            "app-api-dev",
+            "JSON 注解仅在确认冗余时删除；保留 wire 名、兼容别名及实际未知字段策略。",
+            "CodeRules.json",
+            "REVIEW",
+            "PRESERVE_EXISTING",
+            "扫描注解并报告位置；须核对 ObjectMapper、消费者和基线，不能静态证明冗余。",
+            "N17"),
+        r(
+            "N18",
+            "app-api-dev",
+            "MapStruct 沿用 INSTANCE、严格目标策略及校验，确认 processor/binding 和生成实现。",
+            "CodeRules.mapstruct",
+            "PARTIAL",
+            "PLAIN_MAPPING",
+            "检查 Mapper 的静态配置；处理器和实际生成实现由编译证明。",
+            "N18"),
+        r(
+            "N19",
+            "app-api-dev",
+            "内部读取按 get/GetXxx/invokeGet 命名；原子能力从真实首次支持版本开始，核对 Latest 及注册。",
+            "CodeRules.atomic",
+            "REVIEW",
+            "NOT_GENERATED",
+            "原子版本族不在当前生成 contract 中；列出相关源码，须提供能力版本证据。",
+            "N19"),
+        r(
+            "N20",
+            "app-api-dev",
+            "内部重命名不得改变公开 query、外部路径、wire 字段、默认值、顺序和错误契约。",
+            "CodeRules.compatibility",
+            "REVIEW",
+            "PRESERVE_EXISTING",
+            "需要修改前基线和业务断言，当前源码无法证明未变。",
+            "N20"),
+        r(
+            "N21",
+            "app-api-dev",
+            "新增模块接通 modules、dependencyManagement、消费依赖和 classifier，主线升级后对齐父版本。",
+            "MavenParents.check / CodeRules.maven",
+            "PARTIAL",
+            "NOT_GENERATED",
+            "自动校验本地父版本；完整 Reactor/classpath 及依赖接线由 Maven 证明。",
+            "MAVEN-001",
+            "MAVEN-PARSE"),
+        r(
+            "N22",
+            "app-api-dev",
+            "从 Handler.run 验证生命周期、非法输入和异常；覆盖转换、回填、集合及版本边界。",
+            "CodeRules.tests",
+            "REVIEW",
+            "NOT_GENERATED",
+            "工具不替代业务测试执行；报告未验证，不能从测试文件存在推断通过。",
+            "N22"),
+        r(
+            "N23",
+            "atomic-api-dev",
+            "生成前预览，冲突拒绝覆盖，写入不越界；不改配置、断言或规则掩盖失败。",
+            "GenerationPlan.apply / CodeRules.paths",
+            "PARTIAL",
+            "FIXED",
+            "写入边界由生成器执行；修改规则的意图、任务范围和基线需审查。",
+            "N23"),
+        r(
+            "N24",
+            "atomic-api-dev",
+            "不在日志或 diagnostic 字段输出密码、令牌等敏感信息，沿用实际版权头和日志 API。",
+            "CodeRules.privacy",
+            "PARTIAL",
+            "SAFE_DEFAULTS",
+            "拦截明显敏感字段/日志；隐式内容和版权归属需项目证据。",
+            "N24"));
+  }
+
+  static List<Result> results(
+      List<Checker.Finding> findings, boolean evaluated, Map<String, List<String>> evidence) {
+    return all().stream()
+        .map(
+            r -> {
+              var relevant =
+                  findings.stream().filter(f -> r.diagnostics().contains(f.rule())).toList();
+              String status =
+                  !evaluated
+                      ? "NOT_EVALUATED"
+                      : (relevant.stream().anyMatch(f -> f.severity().equals("INCOMPLETE"))
+                              || findings.stream()
+                                  .anyMatch(
+                                      f ->
+                                          f.severity().equals("INCOMPLETE")
+                                              && Set.of("PARSE", "RESOLUTION").contains(f.rule())))
+                          ? "INCOMPLETE"
+                          : relevant.stream().anyMatch(f -> f.severity().equals("ERROR"))
+                              ? "FAIL"
+                              : relevant.stream().anyMatch(f -> f.severity().equals("WARN"))
+                                  ? "REVIEW_REQUIRED"
+                                  : r.coverage().equals("AUTO") ? "PASS" : "REVIEW_REQUIRED";
+              return new Result(
+                  r.id(),
+                  status,
+                  r.checker(),
+                  r.generator(),
+                  r.limitation(),
+                  evidence.getOrDefault(r.id(), List.of()));
+            })
+        .toList();
+  }
+}

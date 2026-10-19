@@ -10,7 +10,7 @@
 | `tools/` | 代码生成/检查工具的入口、Java 实现、模板、schema，以及保证其正确性的测试和打包程序。 |
 | `.github/workflows/` | 在 Linux/Windows 验证工具，并产出可直接运行的 ZIP。 |
 
-根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.5.0。
+根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.6.0。
 
 ## 放进业务仓库
 
@@ -45,6 +45,19 @@ Windows PowerShell：
 - `roles`：必须包含 facade、request、response、implementation、handler、delegate、requestConverter、responseConverter 八个角色，每个都有 packagePrefix/sourceRoot，且落在对应 layout 内。工具据此生成类名和目录，不由模型每次决定。
 
 例如角色配置 `request: {packagePrefix: 项目公共DTO包, sourceRoot: 公共模块/src/main/java}`。init 的示例提供完整结构；替换为项目真实值，不填 operation 清单。可选 disabledFacade 使用现有 configuration 完整类名及 mapField，不能凭空创建注册机制。
+
+## 规范、检查器、生成器逐条对应
+
+人类先阅读两份 SKILL.md 的规范表：共 24 条 N01～N24，分别列出规范文本、检查代码入口、覆盖边界及生成器支持。清单的代码定义在 `tools/cli/src/main/java/dev/atomic/RuleCatalog.java`，测试要求文档与代码逐条一致，不再靠“正文短”推断覆盖完整。
+
+```bash
+sh .atomic-api/tool/atomic-api.sh rules
+sh .atomic-api/tool/atomic-api.sh rules --format json
+```
+
+verify 的 text/JSON 报告包含每条规范的 PASS、FAIL、INCOMPLETE、REVIEW_REQUIRED 或 NOT_EVALUATED。JSON 分开报告 structureStatus 与规范 status：自动结构通过但仍需审查时，status 为 REVIEW_REQUIRED。只有自动检查范围内无问题才记 PASS；JSON、版本、兼容性和测试执行等依赖业务证据的规则，会列出检查位置、未覆盖项和所需证据，不会假装静态证明。
+
+Helper 单一公开入口、组件注解、显式日志出口、异常文本语言、内部节点修饰符及 MapStruct 配置已补检查。生成器提供中文骨架注释；配置真实 `logging.type/factoryType/factoryMethod` 后生成 entry()/ret()，不为日志额外加 try-catch。字段和日志 API 必须来自实际项目，缺日志配置会报告 N13 待验证。
 
 ## 开发流程
 

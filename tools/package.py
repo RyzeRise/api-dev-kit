@@ -10,7 +10,7 @@ def main():
     parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parent / 'dist/atomic-api-cli.zip')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent
-    jar = root / 'cli/target/atomic-api-0.5.0.jar'
+    jar = root / 'cli/target/atomic-api-0.6.0.jar'
     if not jar.is_file():
         parser.error('Build CLI first: mvn -f tools/cli/pom.xml package')
     args.output.parent.mkdir(parents=True, exist_ok=True)

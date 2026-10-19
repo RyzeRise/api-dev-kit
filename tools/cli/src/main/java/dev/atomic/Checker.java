@@ -20,7 +20,8 @@ public final class Checker {
       int checkedMethods,
       List<Finding> findings,
       List<String> manualChecks,
-      String readiness) {
+      String readiness,
+      List<RuleCatalog.Result> rules) {
     public int exitCode(boolean strict) {
       if (discoveredMethods == 0
           || findings.stream().anyMatch(f -> f.severity.equals("INCOMPLETE"))) return 2;
@@ -233,7 +234,13 @@ public final class Checker {
               "WARN", "API-008", guard, "OR leads to exception; review independent failure causes");
     }
     if (contract != null) compare(contract);
-    if (strict) findings.addAll(new StrictChecks(index, contract, profile).check());
+    Map<String, List<String>> evidence = new LinkedHashMap<>();
+    if (strict) {
+      findings.addAll(new StrictChecks(index, contract, profile).check());
+      var codeRules = new CodeRules(index, contract, profile);
+      findings.addAll(codeRules.check());
+      evidence.putAll(codeRules.evidence);
+    }
     boolean scaffold =
         index.units().stream()
             .flatMap(c -> c.findAll(StringLiteralExpr.class).stream())
@@ -249,12 +256,12 @@ public final class Checker {
         discovered,
         checked,
         List.copyOf(findings),
-        List.of(
-            "API-005 lifecycle responsibilities",
-            "API-009 field semantics/completeness",
-            "API-010 comment meaning",
-            "Business behavior and external compatibility"),
-        scaffold ? "SCAFFOLD" : "UNKNOWN");
+        RuleCatalog.all().stream()
+            .filter(r -> !r.coverage().equals("AUTO"))
+            .map(r -> r.id() + " " + r.limitation())
+            .toList(),
+        scaffold ? "SCAFFOLD" : "UNKNOWN",
+        RuleCatalog.results(findings, strict, evidence));
   }
 
   private static boolean inScope(Node node, Contract c) {

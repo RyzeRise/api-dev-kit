@@ -331,7 +331,10 @@ final class StrictChecks {
                           "java.lang.Math",
                           "java.lang.Double")
                       .contains(declaring);
-          if (!dto && !pureJava && !declaring.equals(owner.getFullyQualifiedName().orElseThrow()))
+          if (!dto
+              && !pureJava
+              && !loggerCall(call)
+              && !declaring.equals(owner.getFullyQualifiedName().orElseThrow()))
             error(
                 "STRICT-003",
                 call,
@@ -377,9 +380,20 @@ final class StrictChecks {
     }
   }
 
+  private boolean loggerCall(MethodCallExpr call) {
+    return profile.logging() != null
+        && Set.of("entry", "ret").contains(call.getNameAsString())
+        && call.getScope().isPresent()
+        && call.getScope()
+            .get()
+            .calculateResolvedType()
+            .describe()
+            .equals(profile.logging().type());
+  }
+
   private boolean logHook(MethodCallExpr call) {
     return Set.of("entry", "ret").contains(call.getNameAsString())
-        && call.resolve().declaringType().getName().contains("Logger");
+        && (loggerCall(call) || call.resolve().declaringType().getName().contains("Logger"));
   }
 
   private Set<MethodCallExpr> facadeBindings(MethodDeclaration method) {

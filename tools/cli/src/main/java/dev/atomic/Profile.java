@@ -10,7 +10,21 @@ public record Profile(
     String facadeDefault,
     List<Layout> layout,
     DisabledFacade disabledFacade,
-    Map<String, Layout> roles) {
+    Map<String, Layout> roles,
+    Logging logging) {
+  public record Logging(String type, String factoryType, String factoryMethod) {}
+
+  public Profile(
+      int version,
+      int targetJava,
+      Map<String, String> types,
+      String facadeDefault,
+      List<Layout> layout,
+      DisabledFacade disabledFacade,
+      Map<String, Layout> roles) {
+    this(version, targetJava, types, facadeDefault, layout, disabledFacade, roles, null);
+  }
+
   public record DisabledFacade(String configuration, String mapField) {}
 
   public Profile(
@@ -72,6 +86,11 @@ public record Profile(
             role.sourceRoot().equals(rootFor(role.packagePrefix() + ".example.Type")),
             "Role sourceRoot differs from layout: " + role.packagePrefix());
       }
+    }
+    if (logging != null) {
+      Contract.fqn(logging.type());
+      Contract.fqn(logging.factoryType());
+      Contract.id(logging.factoryMethod());
     }
     if (disabledFacade != null) {
       Contract.fqn(disabledFacade.configuration());

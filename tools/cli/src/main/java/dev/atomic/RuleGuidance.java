@@ -3,6 +3,12 @@ package dev.atomic;
 /** Stable, executable-error vocabulary shared by text and JSON reports. */
 final class RuleGuidance {
   static String fix(String rule) {
+    if (rule.matches("N[0-9]{2}"))
+      return RuleCatalog.all().stream()
+          .filter(r -> r.id().equals(rule))
+          .map(r -> r.requirement() + " 检查边界：" + r.limitation())
+          .findFirst()
+          .orElse("核对规范编号。");
     return switch (rule) {
       case "STRICT-001" -> "按 profile.roles 恢复目标包/sourceRoot；使用 atomic-api new 生成 v2 契约，不修改规则迁就代码。";
       case "STRICT-002" ->
@@ -12,7 +18,8 @@ final class RuleGuidance {
       case "STRICT-004" -> "Facade 仅按 contract.steps 调用 Handler.run；单步直接返回，多步交由业务 Builder 汇总。";
       case "STRICT-005" -> "preHandler 构造原子请求；invokeAtomicApi 仅获取能力并调用；postHandler 校验并转换结果。";
       case "STRICT-006" -> "公共 DTO 删除对 service/Handler/实现层的依赖；跨层字段通过业务 Converter 转换。";
-      case "STRICT-007" -> "实现报告位置的真实业务逻辑，保留失败校验；缺少真实能力资料时保留骨架并报告未验收，不得删除占位文本、返回 null/空 DTO 或更改 contract 伪装完成。";
+      case "STRICT-007" ->
+          "实现报告位置的真实业务逻辑，保留失败校验；缺少真实能力资料时保留骨架并报告未验收，不得删除占位文本、返回 null/空 DTO 或更改 contract 伪装完成。";
       case "STRICT-008" -> "保留原 caught 异常为 cause：使用支持 cause 的构造器，或对实际抛出的包装异常调用 initCause(caught)。";
       case "MAVEN-001" -> "核对该模块 parent.version 与本地父 POM、Reactor 和 classpath；只对齐已证实错配，不清缓存碰运气。";
       case "API-007" -> "Facade 和响应适配置于原有 try；对外保留 caught.getErrMsg() 及 cause；String 失败契约需人工核对。";

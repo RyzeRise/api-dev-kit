@@ -25,7 +25,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: atomic-api-jar
-          path: tools/cli/target/atomic-api-0.5.0.jar
+          path: tools/cli/target/atomic-api-0.6.0.jar
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:

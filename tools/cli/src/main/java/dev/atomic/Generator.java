@@ -41,7 +41,12 @@ public final class Generator {
     Contract.require(
         index.issues().isEmpty(), "INCOMPLETE: source parse/type conflicts: " + index.issues());
     validateFramework();
+    for (var field : c.models().request().fields())
+      Contract.require(
+          !field.diagnostic() || !CodeRules.sensitive(field.name()),
+          "N24: sensitive request field must not be diagnostic: " + field.name());
     validateExternal();
+    LoggingSupport.validate(index, profile.logging());
     model(c.models().request());
     model(c.models().response());
     for (var step : c.steps()) handler(step);
@@ -166,6 +171,14 @@ public final class Generator {
             : GenerationPlan.safe(index.root(), index.path(index.type(fqn)));
     var generated =
         StaticJavaParser.parse("package " + fqn.substring(0, fqn.lastIndexOf('.')) + ";\n" + code);
+    var generatedOwner = generated.getTypes().get(0).asClassOrInterfaceDeclaration();
+    if (!Set.of(contract.models().request().className(), contract.models().response().className())
+        .contains(fqn))
+      for (var method : List.copyOf(generatedOwner.getMethods())) {
+        if (method.getBody().isPresent())
+          method.setJavadocComment(LoggingSupport.documentation(method));
+        LoggingSupport.decorate(generatedOwner, method, profile);
+      }
     shortenGeneratedTypes(
         generated.getTypes().get(0).asClassOrInterfaceDeclaration(), generated.getTypes().get(0));
     String old = Files.exists(path) ? Files.readString(path) : null;
@@ -179,7 +192,7 @@ public final class Generator {
       previous.getImports().sort(Comparator.comparing(Object::toString));
       generated.getImports().sort(Comparator.comparing(Object::toString));
       Contract.require(
-          previous.toString().equals(generated.toString()),
+          semanticText(previous).equals(semanticText(generated)),
           "CONFLICT: existing implementation differs: " + path);
       return;
     }
@@ -190,6 +203,10 @@ public final class Generator {
 
   private void addMethod(ClassOrInterfaceDeclaration owner, String source) {
     MethodDeclaration method = StaticJavaParser.parseMethodDeclaration(source);
+    if (index.type(owner.getFullyQualifiedName().orElseThrow()) == null
+        && method.getBody().isPresent())
+      method.setJavadocComment(LoggingSupport.documentation(method));
+    LoggingSupport.decorate(owner, method, profile);
     var parameterTypes = method.getParameters().stream().map(p -> p.getType().asString()).toList();
     shortenGeneratedTypes(owner, method);
     var sameName = owner.getMethodsByName(method.getNameAsString());
@@ -207,10 +224,8 @@ public final class Generator {
       }
       if (same) {
         Contract.require(
-            shortenGeneratedTypes(owner, existing.clone())
-                .toString()
-                .replace("\r\n", "\n")
-                .equals(method.toString().replace("\r\n", "\n")),
+            semanticText(shortenGeneratedTypes(owner, existing.clone()))
+                .equals(semanticText(method)),
             "CONFLICT: existing method "
                 + owner.getNameAsString()
                 + "."
@@ -224,6 +239,12 @@ public final class Generator {
             "    " + method.toString().replace("\r\n", "\n").replace("\n", "\n    "));
     LexicalPreservingPrinter.setup(method);
     owner.addMember(method);
+  }
+
+  private static String semanticText(Node node) {
+    Node copy = node.clone();
+    copy.walk(n -> n.removeComment());
+    return copy.toString().replace("\r\n", "\n");
   }
 
   private <N extends Node> N shortenGeneratedTypes(ClassOrInterfaceDeclaration owner, N method) {

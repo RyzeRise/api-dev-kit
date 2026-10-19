@@ -16,7 +16,8 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.5.0\n"
+            "atomic-api 0.6.0\n"
+                + "  atomic-api rules [--format text|json]\n"
                 + "  atomic-api init [--repo <path>]\n"
                 + "  atomic-api new --operation <queryXxx> --business <domain>\n"
                 + "  atomic-api verify --contract <api.yaml> [--format text|json]\n"
@@ -32,7 +33,7 @@ public final class Cli {
         return 0;
       }
       Contract.require(
-          Set.of("init", "demo", "new", "generate", "check", "verify").contains(args[0]),
+          Set.of("init", "demo", "new", "generate", "check", "verify", "rules").contains(args[0]),
           "Unknown command");
       Map<String, String> options = new HashMap<>();
       Set<String> flags = new HashSet<>();
@@ -70,6 +71,30 @@ public final class Cli {
           "--operation/--business are for new only");
       String format = options.getOrDefault("--format", "text");
       Contract.require(Set.of("text", "json").contains(format), "Unknown format");
+      if (args[0].equals("rules")) {
+        Contract.require(
+            options.keySet().stream().allMatch("--format"::equals)
+                && flags.isEmpty()
+                && roots.isEmpty()
+                && jars.isEmpty(),
+            "rules accepts --format only");
+        if (format.equals("json"))
+          out.println(
+              Contract.JSON.writerWithDefaultPrettyPrinter().writeValueAsString(RuleCatalog.all()));
+        else
+          RuleCatalog.all()
+              .forEach(
+                  r ->
+                      out.printf(
+                          "%s %s%n  CHECK: %s [%s]%n  GENERATOR: %s%n  LIMIT: %s%n",
+                          r.id(),
+                          r.requirement(),
+                          r.checker(),
+                          r.coverage(),
+                          r.generator(),
+                          r.limitation()));
+        return 0;
+      }
       Path repo = Path.of(options.getOrDefault("--repo", ".")).toAbsolutePath().normalize();
       if (args[0].equals("init")) {
         Contract.require(
@@ -150,6 +175,8 @@ public final class Cli {
       }
       if (args[0].equals("check") || verify) {
         var report = new Checker(loadedProfile).check(index, contract);
+        boolean reviewRequired =
+            report.rules().stream().anyMatch(r -> r.status().equals("REVIEW_REQUIRED"));
         if (format.equals("json"))
           out.println(
               Contract.JSON
@@ -157,20 +184,26 @@ public final class Cli {
                   .writeValueAsString(
                       Map.of(
                           "schemaVersion",
-                          2,
+                          3,
                           "toolVersion",
-                          "0.5.0",
+                          "0.6.0",
                           "scope",
                           repo.toString(),
                           "report",
                           report,
                           "status",
                           report.exitCode(flags.contains("--warnings-as-errors")) == 0
-                              ? (verify ? "STRUCTURE_READY" : "CHECKED")
+                              ? (verify
+                                  ? (reviewRequired ? "REVIEW_REQUIRED" : "STRUCTURE_READY")
+                                  : "CHECKED")
+                              : "BLOCKED",
+                          "structureStatus",
+                          report.exitCode(flags.contains("--warnings-as-errors")) == 0
+                              ? "STRUCTURE_READY"
                               : "BLOCKED",
                           "nextAction",
                           verify
-                              ? "结构检查不能证明业务正确；继续执行项目编译和定向测试，报告命令与退出码。"
+                              ? "逐条补 REVIEW_REQUIRED 所需业务证据，再执行项目编译和定向测试；结构通过不代表规范全部通过。"
                               : "按 finding.fix 修复后重跑原命令。")));
         else {
           report
@@ -187,11 +220,29 @@ public final class Cli {
           out.printf(
               "Methods discovered=%d checked=%d readiness=%s%n",
               report.discoveredMethods(), report.checkedMethods(), report.readiness());
+          report
+              .rules()
+              .forEach(
+                  r ->
+                      out.printf(
+                          "RULE %s %s | CHECK %s | GENERATOR %s%n  LIMIT: %s%n",
+                          r.id(), r.status(), r.checker(), r.generator(), r.limitation()));
+          report
+              .rules()
+              .forEach(
+                  r -> r.evidence().forEach(e -> out.println("  EVIDENCE " + r.id() + ": " + e)));
+          out.printf(
+              "Norms: total=%d pass=%d fail=%d review=%d incomplete=%d%n",
+              report.rules().size(),
+              report.rules().stream().filter(r -> r.status().equals("PASS")).count(),
+              report.rules().stream().filter(r -> r.status().equals("FAIL")).count(),
+              report.rules().stream().filter(r -> r.status().equals("REVIEW_REQUIRED")).count(),
+              report.rules().stream().filter(r -> r.status().equals("INCOMPLETE")).count());
           out.println("Manual review: " + String.join("; ", report.manualChecks()));
           if (verify)
             out.println(
                 report.exitCode(flags.contains("--warnings-as-errors")) == 0
-                    ? "STRUCTURE_READY：继续项目编译与定向测试；本命令不证明业务正确。"
+                    ? "STRUCTURE_READY：仅自动结构检查通过；REVIEW_REQUIRED 仍需逐条审查，继续编译测试，不得报告规范全部通过。"
                     : "BLOCKED：按 FIX 修复并重跑同一 verify 命令；不要降低 contract 版本或修改规则绕过。");
         }
         return report.exitCode(flags.contains("--warnings-as-errors"));

@@ -5,39 +5,30 @@ description: 开发或审查 App API 的公共契约、Facade/Handler、转换�
 
 # App API Dev
 
-先读并执行 [Atomic API Dev 的固定工具流程](../atomic-api-dev/SKILL.md)，再按本文件约束实现 App 层。两份 skill 统一位于 `.atomic-api/skills/`，脚本位于 `.atomic-api/tool/`；通过文件路径调用，不依赖 Agent 自动发现。
+先读 [Atomic API Dev](../atomic-api-dev/SKILL.md) 的共用规范和脚本流程，再执行下列 App 专属规范。所有指令统一位于 `.atomic-api/skills/`。模块和包名服从实际 profile，IPRAN fault 只是既有场景示例。
 
-## App 层边界
+## 逐条代码规范
 
-| 内容 | 归属及行为 |
-|---|---|
-| ReqDto/RspDto、Facade | 业务公共模块，实际包/目录来自 profile.roles；不因旧接口在 SDK 就继续放 SDK。 |
-| Facade 实现、Handler、业务 Converter/Builder | 对应 App 业务实现模块，不反向污染公共契约。 |
-| 原子 DTO → 业务 DTO | App 实现模块的纯 Converter；字段相同也不混用 App/Atomic DTO。 |
-| 业务响应 → REST 模型/String | service 的 ResponseConverter，与 RequestConverter 同目录；必要时回填请求字段并校验完整性，不再查能力或重算状态。 |
-| 单个 Handler | Facade 直接返回 run 结果，不为字段复制建立 Builder。 |
-| 专属响应节点 | 该 RspDto 的 public static 内部类，有自己的 Lombok 注解；只有多个独立公共契约真正共享才用顶层 DTO，引用次数不是依据。 |
+源码入口均在 `tools/cli/src/main/java/dev/atomic/`。`rules --format json` 可读取完整清单；verify 输出每条编号的状态和待验证边界。
 
-实际模块以当前业务为准；IPRAN fault 的 common.fault.dto、fault.facadeinterface、ipran-app-api-fault-* 只适用于该场景，不能复制到所有 App。
+| 编号 | 代码规范 | 检查入口与覆盖范围 | 生成器支持 |
+|---|---|---|---|
+| N16 | 单响应专属节点使用 RspDto 的 public static 内部类；真实跨契约共享才用顶层 DTO。 | `CodeRules.nodes`；部分自动，仍需审查。未覆盖：检查内部节点修饰符；是否专属或共享需消费者证据。 | 不自动生成（`NOT_GENERATED`） |
+| N17 | JSON 注解仅在确认冗余时删除；保留 wire 名、兼容别名及实际未知字段策略。 | `CodeRules.json`；仅定位证据，需业务审查。未覆盖：扫描注解并报告位置；须核对 ObjectMapper、消费者和基线，不能静态证明冗余。 | 保留已有实现，人工改动（`PRESERVE_EXISTING`） |
+| N18 | MapStruct 沿用 INSTANCE、严格目标策略及校验，确认 processor/binding 和生成实现。 | `CodeRules.mapstruct`；部分自动，仍需审查。未覆盖：检查 Mapper 的静态配置；处理器和实际生成实现由编译证明。 | 生成普通映射，不接入 MapStruct（`PLAIN_MAPPING`） |
+| N19 | 内部读取按 get/GetXxx/invokeGet 命名；原子能力从真实首次支持版本开始，核对 Latest 及注册。 | `CodeRules.atomic`；仅定位证据，需业务审查。未覆盖：原子版本族不在当前生成 contract 中；列出相关源码，须提供能力版本证据。 | 不自动生成（`NOT_GENERATED`） |
+| N20 | 内部重命名不得改变公开 query、外部路径、wire 字段、默认值、顺序和错误契约。 | `CodeRules.compatibility`；仅定位证据，需业务审查。未覆盖：需要修改前基线和业务断言，当前源码无法证明未变。 | 保留已有实现，人工改动（`PRESERVE_EXISTING`） |
+| N21 | 新增模块接通 modules、dependencyManagement、消费依赖和 classifier，主线升级后对齐父版本。 | `MavenParents.check / CodeRules.maven`；部分自动，仍需审查。未覆盖：自动校验本地父版本；完整 Reactor/classpath 及依赖接线由 Maven 证明。 | 不自动生成（`NOT_GENERATED`） |
+| N22 | 从 Handler.run 验证生命周期、非法输入和异常；覆盖转换、回填、集合及版本边界。 | `CodeRules.tests`；仅定位证据，需业务审查。未覆盖：工具不替代业务测试执行；报告未验证，不能从测试文件存在推断通过。 | 不自动生成（`NOT_GENERATED`） |
 
-## 生命周期和适配
+## 使用和审查证据
 
-- pre 做输入校验、规范化及原子请求构造；invoke 获取能力并调用；post 校验响应并转成业务结果。检查实际代码职责，不以方法名代替审查。
-- 请求、Facade 调用和响应转换均放在原有异常适配范围内。分别验证三者失败能够按契约返回 ServiceException 或失败 String，并保留 getErrMsg/cause。
-- 独立失败原因分别表达；同一响应缺失的 null/空消息短路检查可以合并。保持 null 列表与显式空列表、null 节点、缺失消息的原有语义。
-- 字段映射保留类型、默认值、顺序及请求回填。不要为通过测试改业务状态、吞异常或伪造空成功。
+固定流程：读取共用 skill → new → 填真实契约 → dry-run/apply → 实现业务 → verify → 项目编译与定向测试。不得以旧版 check 或降低 contract 版本替代验收。
 
-## 重构、版本与 JSON
-
-- 重命名同时核对接口、实现、Latest、管理器调用、DTO、Converter、测试和注册。内部 get 命名不改变公开 query 工具名和外部 query 路径。
-- 新原子能力从真实首次支持版本开始，不能补空旧版；测试首次支持、后续 Latest 和较早不支持版本，沿用框架的“不支持”路径。
-- 删除 JSON 注解前核对真实 ObjectMapper、所有消费者和 wire 契约；只有同名且冗余的注解才删除。连字符、大小写、命名空间及兼容别名必须保留。全局忽略未知字段需证实覆盖实际消费者后才去掉重复类注解。
-- MapStruct 用项目既有方式，严格核对未映射字段、processor/binding 和生成类；响应转换不新增无业务含义的 Builder/Helper 层。
-
-## 测试与接线
-
-- Facade 测试 mock Handler/Builder；Handler 从公开 run 验证生命周期、传给原子接口的规范化请求，以及非法输入不触发调用；Builder 覆盖匹配、反向和缺失数据。
-- Delegate mock 具体 Facade，覆盖请求/调用/响应转换各自失败、请求字段回填和 null/空集合契约。保留错误文本与 cause 断言，不放宽测试换取绿色。
-- 新模块同时接入父 modules、根 dependencyManagement 与消费模块；核对 classifier、版本来源、Facade 兜底注册和动态绑定。主线升级后检查新增模块 parent.version，先同批源码 Reactor，再确认依赖 JAR 来源。
-- Atomic 与 App 改动分别规划 MR，App 依赖新原子能力时关联 Atomic MR，先合入 Atomic 再更新 App 基线。用户明确豁免的现有 MR 不追溯拆分；不要未经要求重写已有历史。
-- 结构验收通过不证明原子调用、版本选择、wire 兼容性或业务结果正确。缺真实资料时只交骨架、列出未验收项，按固定流程运行 verify 和相关编译测试。
+- N16：更新内部节点所有引用、Lombok 注解及转换器；引用次数不能证明公共共享。
+- N17：提供实际 ObjectMapper 配置、消费者及修改前 wire 契约；没有证据就保留注解。大小写、连字符、命名空间、历史别名都属于外部兼容性。
+- N18：沿用项目 MapStruct INSTANCE/default 校验；构建验证 processor、Lombok binding 与生成实现。源码配置检查不等于处理器可用。
+- N19/N20：对照接口、实现、Latest、管理器、注册、DTO、转换器及测试；验证首次支持、后续 Latest 和旧版本“不支持”路径。不根据需求号或分支名推断首次支持版本。
+- N21：新增模块接入父 modules、根 dependencyManagement、消费依赖；合并主线无文本冲突不证明新模块 parent.version 已对齐。先相关模块 -am，再按影响编译 service 链路。
+- N22：Facade mock Handler/Builder；Handler 从公开 run 验证规范化请求和非法输入不触发原子调用；Builder 覆盖多来源匹配、反向和缺失数据；Delegate 覆盖请求/调用/响应适配各自失败、请求回填、null/空集合及 cause。测试沿用业务仓库 JUnit 版本，报告实际执行结果。
+- Atomic/App 分别规划 MR；App 依赖新 Atomic 时关联并先合入 Atomic，再更新 App 基线。明确豁免的现有 MR 不追溯拆分，不擅自改写历史。这是交付流程要求，工具不自动操作 MR。
