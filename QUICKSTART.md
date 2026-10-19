@@ -35,12 +35,12 @@ Agent 应先说明要复用和修改哪些文件；资料不足时指出具体�
 | 情况 | 正确路线 |
 |---|---|
 | 新操作，真实框架适配模板 | new → 填真实契约 → generate --dry-run → --apply → 实现业务与测试 → verify |
-| 已有方法 | 参照模板增量修改，用适配后的真实契约检查 |
+| 已有方法，或新方法复用已有类 | 默认增量修改；不因新增方法就新建整套类 |
 | Atomic 补支持版本 | 只添加新版本并核对 Latest/注册；不全量重新生成历史实现 |
 | 现有结构不适配 | 保留实际代码；按手册辅助检查，明确未完成工具验收 |
 
 详见 [Skill 入口](skills/api-dev/SKILL.md)、[模板替换项](skills/api-dev/references/templates.md)、[规范对照](skills/api-dev/references/rules.md)。
-生成器附带的 TestPlan 各项明确失败；须用项目真实框架、调用和断言补齐，不能当成已通过测试。
+TestPlan 需按 [测试接入步骤](skills/api-dev/references/templates.md#测试模板怎样使用)先验证“运行器发现且因占位失败”，再补真实调用和断言。
 验收统一按 Skill“完成条件”：check 不等于 verify，自动结构通过不等于编译和业务测试通过。
 
 ## 维护者构建和打包

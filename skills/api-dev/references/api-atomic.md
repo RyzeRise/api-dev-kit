@@ -12,7 +12,7 @@
 
 ## 2. 新增原子能力
 
-确认没有同一能力和契约，再运行：
+确认没有同一能力和契约，通过 [适配检查表](configuration.md#生成前适配检查表)后运行：
 
 ```text
 sh .atomic-api/tool/atomic-api.sh new --layer atomic --operation getEvplService --business evpl --api-version R26C10
@@ -34,7 +34,7 @@ sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api
 
 ## 3. 修改已有方法
 
-保留原接口、DTO、版本实现和 Latest，直接增量修改受影响方法，参照 `atomic/implementation.java.tpl` 的校验与日志结构。
+保留原接口、DTO、版本实现和 Latest，直接增量修改受影响方法，参照 `atomic/implementation.java.tpl` 的校验结构；手工日志按下表补齐。
 同步已适配的真实 Atomic 契约字段/签名；检查全部受影响调用者和历史版本。
 不要运行 new：它只创建新草稿，不用于迁移；不要全量 generate 已实现业务：生成器仅接受未改骨架的 NOOP，差异会 CONFLICT。
 
@@ -42,11 +42,15 @@ sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api
 
 当前没有“只生成新版本”命令，全量 generate 会对历史真实实现报冲突。安全路径是：
 
-1. 读原契约与历史证据，确认这是新的支持版本，保留全部历史 releases 及其真实注解。
-2. 参照 `.atomic-api/templates/atomic/implementation.java.tpl`，只创建新版本文件。替换包/类/接口、操作/DTO、apiVersion 和真实注册注解，补调用与日志；不重新生成公共 DTO 或历史实现。替换规则见模板手册。
-3. 按真实时间顺序把新 release 加入原契约。interface Latest 通常保持继承不变；class Latest 仅在新版本确为最新支持时更新 extends，核对原有自定义成员和注册。
-4. 接好实际管理器/容器与模块 POM。参照 `atomic/tests.java.tpl` 补新版本/Latest/首次支持/旧版本不支持及历史回归断言。
-5. 用完整真实契约执行下方 verify，再运行实际版本选择与业务测试。
+| 顺序 | 必做项 |
+|---|---|
+| 1. 固定基线 | 记录历史文件和原契约；核实新版本的支持证据、接口/DTO、注册及底层差异，不改历史业务体 |
+| 2. 只建新版本 | 参考 implementation 模板替换包/类/接口、操作/DTO、apiVersion 和实际注解；展开 requiredFields 为真实类型的必填校验，文件中不留 `{{...}}` |
+| 3. 补真实逻辑与日志 | 实现本版本调用；模板中没有完整日志，手工沿用真实工厂/字段，补 entry() 和每个显式 return/throw 前的 ret()，不强加 try-catch |
+| 4. 接版本与依赖 | 原契约保留历史 releases，按真实顺序加入新项；interface Latest 通常不改继承，class Latest 仅在新项确为最新时改 extends；保留自定义成员并核对注册/POM |
+| 5. 测试并核对差异 | 按 [测试接入步骤](templates.md#测试模板怎样使用)覆盖新版本/Latest/历史行为；对照 diff 确认历史业务体及公共契约未被意外修改，再以完整契约 verify、实际编译测试 |
+
+仅借用模板片段，不直接把 `.tpl` 改后缀当源码；生成器的字段展开和日志装饰不会在手工路径自动运行。
 
 没有原契约时，按实际结构整理 Atomic YAML（字段见新增路线），经维护者核对后检查；只有真实命名与 roles 兼容才可由当前检查器验收。
 现有结构不兼容时保留代码，列出不适配点与具体缺失签名，按实际项目编译测试并报告“未完成工具验收”。Atomic check 和 verify 都要求契约，不存在无契约自动发现全部版本的命令。

@@ -53,10 +53,13 @@
 
 ## 测试模板怎样使用
 
-generate 的计划包含 `.atomic-api/work/<layer>-<operation>/tests/<Operation>TestPlan.java`。
-这是无测试框架依赖的 Java 测试结构：每项先抛 `AssertionError("TEST_IMPLEMENTATION_REQUIRED: ...")`，main 可直接调用它们验证待办没有被误当成功。
-按真实项目 JUnit 版本迁入相关模块 `src/test/java`，保留场景并将失败体替换为真实调用、夹具和断言；不要仅删除失败体或跳过测试。
-工作区待办不是自动接入 Maven 的测试，不会因 verify/编译退出 0 就自动完成。工具不假定私有项目使用 JUnit 4 还是 5。
-生成器会保护已定制的测试待办，后续开发走增量路线；不为重新 generate 删除用户断言。
+generate 将待办放在 `.atomic-api/work/<layer>-<operation>/tests/<Operation>TestPlan.java`。
+它是普通 Java 类：main 直接运行会失败，但没有测试框架注解，**只复制到 src/test/java 不代表 Maven 会执行它**。
 
-所有编译、NOOP、冲突和占位回归使用仓库自己的合成测试框架，只证明工具机制，不代表真实业务项目集成。
+1. 找同模块一个已实际执行的测试，确认框架版本、包名、类名发现规则、可见性、测试插件及定向运行命令。
+2. 按该测试接入场景：补真实 package/框架注解，调整方法可见性与 static，移除待办 main；复用项目夹具与依赖，不另引一套框架。
+3. **先保留 AssertionError 占位运行一次。** 报告应包含新类和场景，并因 TEST_IMPLEMENTATION_REQUIRED 失败；成功、零用例或跳过都说明接入尚未验证。
+4. 将各失败体替换为真实调用和断言，再运行同一命令；核对这些场景确实执行、无失败且无意外跳过，保存报告和退出码。
+
+工作区待办不自动接入 Maven；check/verify 和编译成功均不能证明测试执行。定制待办受冲突保护，后续直接增量开发。
+所有工具回归使用合成框架，只证明机制，不代表私有业务集成；无法确认的框架/命令应交由能读取源码的会话核对。

@@ -5,8 +5,16 @@
 
 ## 1. 先判断已有还是新增
 
-找到本次业务实际的 service 入口、Delegate、两个 Converter、Facade 接口/实现、Handler、DTO、Atomic/Latest 和测试，读方法体与调用者。
-无需搜索其他业务的类。方法已存在时只改有关文件；新增方法也可以复用现有类，不默认新建整套类。
+找到本次业务的入口、DTO、相关实现和测试，读方法体及调用者后选择：
+
+| 现状 | 默认路线 |
+|---|---|
+| 方法已存在 | 在原文件增量修改，不运行 new/generate |
+| 方法不存在，但应复用已有 Facade/Delegate 等 | 只增加所需成员及缺失文件，不另建一套类 |
+| 确需一套新骨架，命名与框架兼容 | 通过适配检查表后走新增生成流程 |
+
+复用已有类时可先核对新操作草稿与 dry-run；仅当目标与原类一致、计划只增所需成员且保留已有业务体时 apply，否则手工增量。
+
 写下真实请求/响应字段、默认值、异常以及调用链：
 
 `Delegate（转请求 → 调 Facade → 转响应） → Facade → Handler.run（pre → invoke → post） → Atomic`
@@ -15,7 +23,7 @@
 
 ## 2. 选择实施路径
 
-### 修改已有实现
+### 修改已有实现或向已有类加方法
 
 按现有 DTO/方法和框架增量修改，参照 `app/` 模板的职责结构，保留已有命名和外部签名。
 有适配过的 v2 契约则同步本次实际变更并 verify；不重新生成已有业务体。
@@ -23,7 +31,7 @@
 
 ### 新增且模板适配
 
-核对 `.atomic-api/profile.yaml`；首次配置读 [配置手册](configuration.md)。
+先通过 [适配检查表](configuration.md#生成前适配检查表)，核对 `.atomic-api/profile.yaml`。
 下面命令的 operation/business 替换为本次真实值，L2EVPN 仅是命令示例；已有该操作不运行 new。
 Linux/macOS：
 
@@ -56,7 +64,6 @@ fields:
 String 外部响应的 responseBindings 只有保留键 message，其值为业务响应字段名；若字段也叫 message，则写 `message: message`。
 
 class/sourceRoot、target、steps 按 profile 固定；泛型逗号类型使用 YAML 引号。
-当前模板使用双泛型 Handler 与 BasicApiContext、preHandler/invokeAtomicApi/postHandler/run、异常 getErrMsg、管理器 getFacadeImpl、REST setter；须逐项核对真实签名。
 
 ```text
 sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --dry-run
@@ -64,7 +71,7 @@ sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/co
 ```
 
 预览检查命名、路径、类型和既有文件。生成 DTO、Facade、Handler、两个 Converter、Delegate；真实多来源汇总才有 Builder。
-同时生成 `.atomic-api/work/app-<operation>/tests/<Operation>TestPlan.java`；按项目测试框架迁入相关模块并补断言，方式见模板说明。
+同时生成 `.atomic-api/work/app-<operation>/tests/<Operation>TestPlan.java`；按 [测试接入步骤](templates.md#测试模板怎样使用)迁入相关模块。
 
 ### 模板不适用
 

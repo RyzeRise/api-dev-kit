@@ -4,6 +4,21 @@
 执行 `sh .atomic-api/tool/atomic-api.sh init` 创建草稿；Windows 使用入口中对应命令。
 两份 profile 独立，init 保留既有文件；配置必须由真实源码与依赖签名核对。
 
+## 生成前适配检查表
+
+从相邻已运行的代码记录“文件/方法签名 → 核对结果”；只填类名不算适配。
+
+| 核对项 | App 模板要求 | Atomic 模板要求 |
+|---|---|---|
+| 命名与位置 | 契约 target/models/steps 的类名、包、源码根符合项目；复用类时预览只增所需成员 | 公共接口/DTO、版本实现/Latest 的命名及模块符合 roles |
+| 调用签名 | Handler 为双泛型 I/O，BasicApiContext 可用；preHandler(I)→Context、invokeAtomicApi(Context)→Context、postHandler(Context)→O、run(I)→O 的参数/返回/可见性/throws 与模板兼容（Context 指 BasicApiContext） | 本操作 ReqDto→RspDto 签名与父接口兼容；Latest 的 class/interface 继承模式符合真实框架 |
+| 边界与注册 | 核对内部异常 String 构造器/getErrMsg、外部异常 String 构造器/cause、getFacadeImpl(Class) 返回类型、组件/注入注解及已有对外方法参数 | 核对真实注册注解的目标/参数、支持版本顺序与 Latest 注册，不凭空补值 |
+| DTO 与转换 | 顶层 DTO、访问器、REST 响应无参构造/setter 与类型匹配；内部节点、回填或复杂映射走增量路线 | 顶层 DTO 与实际字段/访问器相容；复杂节点手工保留原结构 |
+| 依赖与日志 | 两层都须解析真实源码/JAR；日志工厂与 entry/ret 签名见下节。自动日志不支持时明确列出手工补齐项 | 同左，且公共模块不得依赖版本实现 |
+
+信息缺失就列出具体文件/签名；确定不兼容则保留真实框架，走手工增量或交维护者适配工具。
+全部已确认才生成；日志若须手工补齐，交付前单独核对。dry-run 成功不是完整签名兼容证明，最终仍须真实编译。
+
 ## App profile
 
 本节只在首次接入或框架变化时使用。读取 `.atomic-api/profile.yaml` 的现有完整结构并修改真实值；没有配置时先运行 init。不要手工只建下面几行导致缺字段。
@@ -17,8 +32,6 @@
 | externalException | service 对外包装异常，核对构造器及 cause 保留方式 |
 | injectionAnnotation | 当前代码使用的注入注解 |
 | componentAnnotation | 具体 Handler/Helper 使用的组件注解 |
-
-当前 App 生成模板按双泛型 Handler 基类和 BasicApiContext 生命周期编写，使用 preHandler、invokeAtomicApi、postHandler、run，以及内部异常 getErrMsg、管理器 getFacadeImpl、REST 响应 setter。同名不代表完整签名兼容；若实际框架不同，先适配工具，不能伪造项目框架。最终用真实编译证明可用。
 
 | roles 下的键 | 应指向哪类代码的 packagePrefix 与 sourceRoot |
 |---|---|
@@ -35,7 +48,7 @@
 
 例如 request 的 sourceRoot 从当前公共 DTO 所在模块截到 src/main/java，packagePrefix 从其 package 声明归纳；不要从文件系统目录猜 package。targetJava 与业务编译版本一致。facadeDefault 按既有默认实现选 throw 或 return-null；已有禁用注册还需核对 disabledFacade.configuration/mapField。
 
-logging 配置见下节；未配置仍需人工核对日志，不宣称通过。更多未知类型通过真实源码或 --classpath 的实际 JAR 解析，不改 profile 以掩盖源码违规。
+未知类型通过真实源码或 --classpath 的实际 JAR 解析，不改 profile 以掩盖源码违规。
 
 
 ## Atomic profile

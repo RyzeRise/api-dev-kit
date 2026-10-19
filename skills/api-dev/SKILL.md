@@ -14,9 +14,10 @@ description: 用于本项目 Java API 的新增、修改、支持版本扩展和
 | 封装设备/控制器，新增原子能力 | [Atomic 手册](references/api-atomic.md)，`atomic/` 模板 | 新契约 → 预览 → 生成 |
 | 修改已有 Atomic 方法 | 同上 | 原文件增量修改，不重新生成历史实现 |
 | 给已有 Atomic 补支持版本 | 同上“补版本” | 只新增真实版本实现，核对 Latest 与注册 |
-| 在已有原子能力上增加 App 业务接口 | [App 手册](references/app-api.md)，`app/` 模板 | 新操作适配模板才生成；已有实现增量修改 |
+| 新增或修改 App 方法 | [App 手册](references/app-api.md)，`app/` 模板 | 先判断复用已有类还是新建骨架 |
 | 两层都缺 | 两份手册 | 先 Atomic，再接 App，分别检查和交付 |
 
+先查方法及所属类：已有方法直接增量修改；新方法若复用已有类也优先增量，不因方法是新的就生成整套类。
 提到 EVPL 不代表两层都要开发；先查底层能力是否已经存在。
 写代码前读所选手册。手册链接 [模板及替换项](references/templates.md)；初始化后模板位于 `.atomic-api/templates/`。
 [L2EVPN 完整案例](references/l2evpn-example.md)用于校准查询 EVPL 节点与修改 EVPL Service ID，不规定其他业务的命名、字段或版本。
@@ -26,7 +27,7 @@ description: 用于本项目 Java API 的新增、修改、支持版本扩展和
 在业务仓库根目录读 AGENTS.md（若有）、git status、相关接口与测试，向用户简述入口、复用能力、拟改文件和具体缺失资料。
 检查工具：Linux/macOS 执行 `sh .atomic-api/tool/atomic-api.sh -h`；Windows PowerShell 执行 `& ".atomic-api/tool/atomic-api.cmd" -h`。
 工具只需 Java 17+；业务编译 JDK 沿用项目配置。App 用 `.atomic-api/profile.yaml`，Atomic 用 `.atomic-api/atomic-profile.yaml`。
-首次接入或类型不符时读 [配置与迁移](references/configuration.md)，不将 com.example 草稿当真实框架。
+生成前逐项核对 [适配检查表](references/configuration.md#生成前适配检查表)；首次配置与迁移也在该文档，不将 com.example 草稿当真实框架。
 
 ## 3. 必须遵守的代码规范
 
@@ -42,7 +43,7 @@ description: 用于本项目 Java API 的新增、修改、支持版本扩展和
 ## 4. 完成条件
 
 1. 真实契约与结构适配时，以原 layer/contract 执行 verify，按文件、message、fix 修复。未适配时按手册保留既有实现并报告“未完成工具验收”；check 是辅助扫描，不能替代 verify。
-2. `git diff --check`，按实际项目 JDK/settings/本地依赖编译并运行定向业务测试；覆盖成功、非法输入、查无数据、底层失败和兼容边界。失败先核对首错、命令和本次 diff；缺 DTO 可能引发 MapStruct 连带失败。
+2. `git diff --check`，按实际项目 JDK/settings/本地依赖编译，并按 [测试接入步骤](references/templates.md#测试模板怎样使用)确认用例被执行；覆盖成功、非法输入、查无数据、底层失败和兼容边界。失败先核对首错、命令和本次 diff；缺 DTO 可能引发 MapStruct 连带失败。
 3. 报告改动文件、真实调用链、命令/退出码、待审证据和未验证项。日志放 `.atomic-api/work/<operation>/`，长任务续读原日志。测试文件存在、通用工具测试通过都不代表私有业务集成通过。
 
 | 结果 | 下一步 |
