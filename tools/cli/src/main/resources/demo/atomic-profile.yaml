@@ -1,0 +1,15 @@
+# 待配置：这是虚构目录，不得用于实际项目。与 App profile 分开。
+version: 1
+targetJava: 8
+latestKind: interface
+baseInterfaces: []
+interfaceAnnotations: []
+layout:
+  - {packagePrefix: com.example.atomic.common, sourceRoot: api-atomic-common/src/main/java}
+  - {packagePrefix: com.example.atomic.impl, sourceRoot: api-atomic/api-example/src/main/java}
+roles:
+  apiInterface: {packagePrefix: com.example.atomic.common.apiinterface, sourceRoot: api-atomic-common/src/main/java}
+  request: {packagePrefix: com.example.atomic.common.dto, sourceRoot: api-atomic-common/src/main/java}
+  response: {packagePrefix: com.example.atomic.common.dto, sourceRoot: api-atomic-common/src/main/java}
+  implementation: {packagePrefix: com.example.atomic.impl.api, sourceRoot: api-atomic/api-example/src/main/java}
+  latest: {packagePrefix: com.example.atomic.common.latest, sourceRoot: api-atomic-common/src/main/java}

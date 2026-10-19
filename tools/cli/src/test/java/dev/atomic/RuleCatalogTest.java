@@ -12,7 +12,7 @@ class RuleCatalogTest {
     var ids = new HashSet<String>();
     for (var r : RuleCatalog.all()) {
       assertTrue(ids.add(r.id()), r.id());
-      String skill = Files.readString(Path.of("../../skills", r.skill(), "SKILL.md"));
+      String skill = Files.readString(Path.of("../../skills", r.skill()));
       String row =
           skill.lines().filter(s -> s.startsWith("| " + r.id() + " |")).findFirst().orElseThrow();
       assertTrue(row.contains(r.requirement()), r.id());

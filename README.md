@@ -6,10 +6,10 @@
 
 | 位置 | 存在理由 |
 |---|---|
-| `skills/` | 两份开发指令，各一个 SKILL.md，没有平台元数据或附属说明文件。 |
+| `skills/` | 单一 api-dev/SKILL.md 入口，references/api-atomic.md 和 app-api.md 分别指导两层开发。 |
 | `tools/` | 代码生成/检查工具的入口、Java 实现、模板、schema，以及保证其正确性的测试和打包程序。 |
 
-根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.6.0。
+根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.7.0。
 
 ## 放进业务仓库
 
@@ -27,15 +27,17 @@ Windows PowerShell：
 & ".atomic-api/tool/atomic-api.cmd" init
 ```
 
-只需 Java 17+，无需全局安装、Maven、Python、管理员权限或修改 PATH。init 只生成 `.atomic-api/` 内的配置、契约示例和两份 skill，保留已有文件。维护者核对 profile 后，对支持读取文件及执行命令的任意 Agent 提示：
+只需 Java 17+，无需全局安装、Maven、Python、管理员权限或修改 PATH。init 只生成 `.atomic-api/` 内的配置、契约示例和统一 api-dev skill（含两份路线文档），保留已有文件。维护者核对 profile 后，对支持读取文件及执行命令的任意 Agent 提示：
 
-> 请读取 `.atomic-api/skills/app-api-dev/SKILL.md`，新增根据地址查询电路的接口，复用已有底层能力。
+> 请读取 `.atomic-api/skills/api-dev/SKILL.md`，新增根据地址查询电路的接口，复用已有底层能力。
 
-原子能力任务引用 `.atomic-api/skills/atomic-api-dev/SKILL.md`。不配置各 Agent 专用目录。升级时需对照更新已有 skill/profile 定制，init 不覆盖；旧的 Agent 专用目录由维护者合并定制后移除。
+同一入口按任务读取 `references/api-atomic.md` 或 `references/app-api.md`。不配置各 Agent 专用目录。init 新建统一入口并保留已有文件；升级不会覆盖 profile、skill 定制，也不删除旧 atomic-api-dev/app-api-dev。对照合并定制后再移除旧目录，避免 Agent 继续读旧流程。
 
 ## 项目配置（维护者一次核对）
 
-`.atomic-api/profile.yaml` 决定真实框架和模块，不能直接使用虚构 com.example 配置：
+两条路线独立配置，不把 Atomic 套进 App 框架。`.atomic-api/profile.yaml` 配置 App；`.atomic-api/atomic-profile.yaml` 配置 Atomic，均不能直接使用虚构 com.example 草稿。
+
+App 配置：
 
 - `types`：组件管理、Facade 注解、Handler 基类、内部/外部异常、注入及组件注解的真实完整类名；方法签名必须可解析。
 - `targetJava`：业务源码版本，可选 8/11/17/21，与运行工具的 Java 17+ 分开。
@@ -45,13 +47,15 @@ Windows PowerShell：
 
 例如角色配置 `request: {packagePrefix: 项目公共DTO包, sourceRoot: 公共模块/src/main/java}`。init 的示例提供完整结构；替换为项目真实值，不填 operation 清单。可选 disabledFacade 使用现有 configuration 完整类名及 mapField，不能凭空创建注册机制。
 
+Atomic 配置的 roles 为 apiInterface/request/response/implementation/latest；latestKind 明确 class 或 interface，baseInterfaces/interfaceAnnotations 显式保留实际框架父接口和注解。版本注册注解由操作契约提供，不能猜测。具体继承关系和未覆盖边界见 `skills/api-dev/references/api-atomic.md`。
+
 ## 规范、检查器、生成器逐条对应
 
-人类先阅读两份 SKILL.md 的规范表：共 24 条 N01～N24，分别列出规范文本、检查代码入口、覆盖边界及生成器支持。清单的代码定义在 `tools/cli/src/main/java/dev/atomic/RuleCatalog.java`，测试要求文档与代码逐条一致，不再靠“正文短”推断覆盖完整。
+人类先读 `skills/api-dev/SKILL.md` 的共用规范和分流表，再读对应 references 文档。App 保留 N01～N24，Atomic 使用 A01～A08；编号分别对应真实检查代码、生成支持和未覆盖项，不能用另一层的结果验收。App 清单在 RuleCatalog.java，Atomic 清单在 AtomicTool.java；测试要求文档与代码一致。
 
 ```bash
-sh .atomic-api/tool/atomic-api.sh rules
-sh .atomic-api/tool/atomic-api.sh rules --format json
+sh .atomic-api/tool/atomic-api.sh rules --layer app
+sh .atomic-api/tool/atomic-api.sh rules --layer atomic --format json
 ```
 
 verify 的 text/JSON 报告包含每条规范的 PASS、FAIL、INCOMPLETE、REVIEW_REQUIRED 或 NOT_EVALUATED。JSON 分开报告 structureStatus 与规范 status：自动结构通过但仍需审查时，status 为 REVIEW_REQUIRED。只有自动检查范围内无问题才记 PASS；JSON、版本、兼容性和测试执行等依赖业务证据的规则，会列出检查位置、未覆盖项和所需证据，不会假装静态证明。
@@ -60,22 +64,34 @@ Helper 单一公开入口、组件注解、显式日志出口、异常文本语�
 
 ## 开发流程
 
-以下命令在业务仓库根执行，Windows 将前缀换为 `& ".atomic-api/tool/atomic-api.cmd"`：
+App 示例，以下命令在业务仓库根执行，Windows 将前缀换为 `& ".atomic-api/tool/atomic-api.cmd"`：
 
 ```bash
-sh .atomic-api/tool/atomic-api.sh new --operation queryCircuit --business circuit
+sh .atomic-api/tool/atomic-api.sh new --layer app --operation queryCircuit --business circuit
 # Agent 填写输出契约中的真实业务字段、外部响应与映射
-sh .atomic-api/tool/atomic-api.sh generate --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
-sh .atomic-api/tool/atomic-api.sh generate --contract .atomic-api/contracts/queryCircuit.yaml --apply
+sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryCircuit.yaml --dry-run
+sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryCircuit.yaml --apply
 # 实现真实业务后检查并按 FIX 修复
-sh .atomic-api/tool/atomic-api.sh verify --contract .atomic-api/contracts/queryCircuit.yaml
+sh .atomic-api/tool/atomic-api.sh verify --layer app --contract .atomic-api/contracts/queryCircuit.yaml
 ```
 
-工具检查角色位置、转换器实际调用和纯映射范围、Facade 编排、Handler 常见职责错位、公共 DTO 反向依赖、明显占位、异常 cause 及本地父 POM 版本错配。无法解析时输出 INCOMPLETE，不能当通过。
+Atomic 示例：
+
+```bash
+sh .atomic-api/tool/atomic-api.sh new --layer atomic --operation getEvplService --business evpl --api-version R26C10
+# 填写 Atomic 契约的真实字段、用途、releases 注册注解及 latestAnnotations
+sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --dry-run
+sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --apply
+sh .atomic-api/tool/atomic-api.sh verify --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml
+```
+
+Atomic 单独生成接口、公共 DTO、版本实现及配置模式的 Latest 骨架；不生成 Facade/Handler/Delegate，不自动发明注册表或真实 REST 调用。releases 仅列真实支持版本，顺序和首支持证据需审查。两种已支持的 Latest 结构若不适合实际项目，先适配工具，不能改框架凑模板。
+
+App 工具检查角色位置、转换器实际调用和纯映射范围、Facade 编排、Handler 常见职责错位、公共 DTO 反向依赖、明显占位、异常 cause 及本地父 POM 版本错配。无法解析时输出 INCOMPLETE，不能当通过。
 
 verify 退出 0/STRUCTURE_READY 只表示覆盖范围内结构可接受，业务交付还须有实际项目编译和定向测试。退出 1 表示违规/占位，2 表示配置或解析不完整；生成冲突也会阻塞。CI 可执行同一 verify 命令作为门槛。
 
-仅需骨架或缺底层资料时保留占位并报告 SCAFFOLD；新生成的骨架 verify 失败是预期行为。只读旧接口用 check；v1 契约只保留存量兼容，不能替代新增 v2 的 verify。嵌套 DTO、复杂映射、原子版本族及 JSON 语义仍需真实框架资料和人工实现，不能改外部契约迎合工具。
+仅需骨架或缺底层资料时保留占位并报告 SCAFFOLD；新生成的骨架 verify 失败是预期行为。只读旧接口用 check；v1 契约只保留存量兼容，不能替代新增 v2 的 verify。嵌套 DTO、复杂映射、版本注册运行及 JSON 语义仍需真实框架资料和人工验证，不能改外部契约迎合工具。
 
 ## 工具维护与试用
 

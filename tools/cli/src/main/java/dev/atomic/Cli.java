@@ -16,10 +16,11 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.6.0\n"
-                + "  atomic-api rules [--format text|json]\n"
+            "atomic-api 0.7.0\n"
+                + "  atomic-api rules [--layer app|atomic] [--format text|json]\n"
                 + "  atomic-api init [--repo <path>]\n"
-                + "  atomic-api new --operation <queryXxx> --business <domain>\n"
+                + "  atomic-api new --layer app|atomic --operation <operation> --business <domain>"
+                + " [--api-version R26C10]\n"
                 + "  atomic-api verify --contract <api.yaml> [--format text|json]\n"
                 + "  atomic-api demo --repo <empty-directory>\n"
                 + "  atomic-api generate --contract <api.yaml> [--profile <framework.yaml>]"
@@ -53,7 +54,9 @@ public final class Cli {
                         "--source-root",
                         "--classpath",
                         "--operation",
-                        "--business")
+                        "--business",
+                        "--layer",
+                        "--api-version")
                     .contains(key)
                 && i + 1 < args.length,
             "Unknown/missing argument: " + key);
@@ -69,20 +72,29 @@ public final class Cli {
           args[0].equals("new")
               || (!options.containsKey("--operation") && !options.containsKey("--business")),
           "--operation/--business are for new only");
+      String layer = options.getOrDefault("--layer", "app");
+      Contract.require(Set.of("app", "atomic").contains(layer), "Unknown layer: " + layer);
+      Contract.require(
+          !options.containsKey("--api-version")
+              || (layer.equals("atomic") && args[0].equals("new")),
+          "--api-version is for atomic new only");
       String format = options.getOrDefault("--format", "text");
       Contract.require(Set.of("text", "json").contains(format), "Unknown format");
       if (args[0].equals("rules")) {
         Contract.require(
-            options.keySet().stream().allMatch("--format"::equals)
+            options.keySet().stream().allMatch(k -> Set.of("--format", "--layer").contains(k))
                 && flags.isEmpty()
                 && roots.isEmpty()
                 && jars.isEmpty(),
             "rules accepts --format only");
         if (format.equals("json"))
           out.println(
-              Contract.JSON.writerWithDefaultPrettyPrinter().writeValueAsString(RuleCatalog.all()));
+              Contract.JSON
+                  .writerWithDefaultPrettyPrinter()
+                  .writeValueAsString(
+                      layer.equals("atomic") ? AtomicTool.rules() : RuleCatalog.all()));
         else
-          RuleCatalog.all()
+          (layer.equals("atomic") ? AtomicTool.rules() : RuleCatalog.all())
               .forEach(
                   r ->
                       out.printf(
@@ -96,6 +108,9 @@ public final class Cli {
         return 0;
       }
       Path repo = Path.of(options.getOrDefault("--repo", ".")).toAbsolutePath().normalize();
+      Contract.require(
+          !options.containsKey("--layer") || !Set.of("init", "demo").contains(args[0]),
+          "init/demo do not accept --layer");
       if (args[0].equals("init")) {
         Contract.require(
             options.keySet().stream().allMatch("--repo"::equals)
@@ -107,9 +122,9 @@ public final class Cli {
         result.files().forEach(out::println);
         out.println(result.profileStatus());
         out.println(
-            "下一步：核对 .atomic-api/profile.yaml，配置 roles，然后 atomic-api"
-                + " new --operation queryExample --business example。");
-        out.println("提示 Agent：请读取 .atomic-api/skills/app-api-dev/SKILL.md，按其中流程完成任务。");
+            "下一步：App 核对 .atomic-api/profile.yaml；Atomic 核对 .atomic-api/atomic-profile.yaml。App"
+                + " 示例：atomic-api new --layer app --operation queryExample --business example。");
+        out.println("提示 Agent：请读取 .atomic-api/skills/api-dev/SKILL.md，按其中流程完成任务。");
         out.println("仓库内便携工具约定放在 .atomic-api/tool/，Skill 会优先调用该目录的脚本。");
         return 0;
       }
@@ -130,6 +145,11 @@ public final class Cli {
       List<Path> absoluteRoots =
           roots.stream().map(p -> p.isAbsolute() ? p : repo.resolve(p)).toList();
       SourceIndex index = SourceIndex.scan(repo, absoluteRoots, jars);
+      if (layer.equals("atomic")) return AtomicTool.run(args[0], repo, options, flags, index, out);
+      Contract.require(
+          !options.containsKey("--layer")
+              || Set.of("new", "generate", "check", "verify").contains(args[0]),
+          "--layer is for new/generate/check/verify/rules");
       Contract contract =
           options.containsKey("--contract")
               ? Contract.load(Path.of(options.get("--contract")))
@@ -148,7 +168,9 @@ public final class Cli {
         Contract.require(
             options.keySet().stream()
                     .allMatch(
-                        k -> Set.of("--repo", "--profile", "--operation", "--business").contains(k))
+                        k ->
+                            Set.of("--repo", "--profile", "--operation", "--business", "--layer")
+                                .contains(k))
                 && flags.isEmpty()
                 && roots.isEmpty()
                 && jars.isEmpty(),
@@ -186,7 +208,9 @@ public final class Cli {
                           "schemaVersion",
                           3,
                           "toolVersion",
-                          "0.6.0",
+                          "0.7.0",
+                          "layer",
+                          "app",
                           "scope",
                           repo.toString(),
                           "report",

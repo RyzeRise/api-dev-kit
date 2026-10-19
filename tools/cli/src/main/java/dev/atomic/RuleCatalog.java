@@ -38,7 +38,7 @@ public final class RuleCatalog {
     return List.of(
         r(
             "N01",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "类名、包与源码目录服从项目 roles，不猜目录或把公共契约放入 SDK。",
             "StrictChecks.check / Conventions.validate",
             "AUTO",
@@ -48,7 +48,7 @@ public final class RuleCatalog {
             "CONTRACT"),
         r(
             "N02",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "Facade 使用单个业务 ReqDto/RspDto，字段名称和类型符合契约。",
             "Checker.signature / compare",
             "AUTO",
@@ -58,7 +58,7 @@ public final class RuleCatalog {
             "CONTRACT"),
         r(
             "N03",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "请求和响应 Converter 分开；Delegate 实际使用两者，不直接组装 REST 响应。",
             "StrictChecks.delegate / converter",
             "AUTO",
@@ -69,7 +69,7 @@ public final class RuleCatalog {
             "API-001"),
         r(
             "N04",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "Facade 只编排 Handler；单步直接返回，Builder 只用于真实汇总。",
             "StrictChecks.facade / Checker.checkHandlerCalls",
             "PARTIAL",
@@ -79,7 +79,7 @@ public final class RuleCatalog {
             "API-004"),
         r(
             "N05",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "pre 校验并建请求，invoke 获取能力并调用，post 校验转换响应；状态放 Context。",
             "StrictChecks.lifecycle",
             "PARTIAL",
@@ -88,7 +88,7 @@ public final class RuleCatalog {
             "STRICT-005"),
         r(
             "N06",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "公共 DTO 不反向依赖 service、Handler 或实现层；App/Atomic 模型分别归属公共模块。",
             "StrictChecks.check / CodeRules.dependencies",
             "PARTIAL",
@@ -98,7 +98,7 @@ public final class RuleCatalog {
             "N06"),
         r(
             "N07",
-            "atomic-api-dev",
+            "api-dev/SKILL.md",
             "真实调用未实现时保留明确占位，不以 null、空 DTO 或删标记伪装完成。",
             "StrictChecks.lifecycle / Checker.check",
             "PARTIAL",
@@ -107,7 +107,7 @@ public final class RuleCatalog {
             "STRICT-007"),
         r(
             "N08",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "请求、Facade 和响应适配置于异常边界；保留内部业务异常、getErrMsg、cause 及 String 错误形式；独立失败原因分别表达，同因"
                 + " null/空检查可短路合并。",
             "Checker.boundary / StrictChecks.delegate",
@@ -120,7 +120,7 @@ public final class RuleCatalog {
             "API-008"),
         r(
             "N09",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "响应转换前校验完整性，保留 null/空集合、顺序、类型与默认值。",
             "Checker.responseBoundary / compare",
             "PARTIAL",
@@ -130,7 +130,7 @@ public final class RuleCatalog {
             "CONTRACT"),
         r(
             "N10",
-            "atomic-api-dev",
+            "api-dev/references/app-api.md",
             "Facade 注解、默认方法和已配置的禁用注册须完整，重构不改变既有注册行为。",
             "CodeRules.registration",
             "PARTIAL",
@@ -139,7 +139,7 @@ public final class RuleCatalog {
             "N10"),
         r(
             "N11",
-            "atomic-api-dev",
+            "api-dev/SKILL.md",
             "每个具体 Helper 仅有一个 public 业务方法（含继承，排除继承自 Object 的方法和构造器）；其他辅助方法私有化。",
             "CodeRules.helpers",
             "AUTO",
@@ -148,7 +148,7 @@ public final class RuleCatalog {
             "N11"),
         r(
             "N12",
-            "atomic-api-dev",
+            "api-dev/SKILL.md",
             "新增具体 Handler/Helper 可用单类 Component，不强造父子类；已有继承保持框架约定。",
             "CodeRules.components",
             "PARTIAL",
@@ -157,7 +157,7 @@ public final class RuleCatalog {
             "N12"),
         r(
             "N13",
-            "atomic-api-dev",
+            "api-dev/SKILL.md",
             "业务方法入口 entry，每个显式 return/throw 前 ret；不为 ret 强加 try-catch。",
             "CodeRules.logging / LoggingSupport.validate",
             "PARTIAL",
@@ -166,7 +166,7 @@ public final class RuleCatalog {
             "N13"),
         r(
             "N14",
-            "atomic-api-dev",
+            "api-dev/SKILL.md",
             "注释用精炼中文解释业务意图，函数注释说明优先级；英文缩写在说明中给出全拼。",
             "CodeRules.comments",
             "PARTIAL",
@@ -175,7 +175,7 @@ public final class RuleCatalog {
             "N14"),
         r(
             "N15",
-            "atomic-api-dev",
+            "api-dev/SKILL.md",
             "异常文本用可诊断的英文，包含操作及底层原因；格式化使用 Locale.ROOT。",
             "CodeRules.messages / Checker.boundary",
             "PARTIAL",
@@ -185,7 +185,7 @@ public final class RuleCatalog {
             "API-007"),
         r(
             "N16",
-            "app-api-dev",
+            "api-dev/references/app-api.md",
             "单响应专属节点使用 RspDto 的 public static 内部类；真实跨契约共享才用顶层 DTO。",
             "CodeRules.nodes",
             "PARTIAL",
@@ -194,7 +194,7 @@ public final class RuleCatalog {
             "N16"),
         r(
             "N17",
-            "app-api-dev",
+            "api-dev/references/app-api.md",
             "JSON 注解仅在确认冗余时删除；保留 wire 名、兼容别名及实际未知字段策略。",
             "CodeRules.json",
             "REVIEW",
@@ -203,7 +203,7 @@ public final class RuleCatalog {
             "N17"),
         r(
             "N18",
-            "app-api-dev",
+            "api-dev/references/app-api.md",
             "MapStruct 沿用 INSTANCE、严格目标策略及校验，确认 processor/binding 和生成实现。",
             "CodeRules.mapstruct",
             "PARTIAL",
@@ -212,7 +212,7 @@ public final class RuleCatalog {
             "N18"),
         r(
             "N19",
-            "app-api-dev",
+            "api-dev/references/app-api.md",
             "内部读取按 get/GetXxx/invokeGet 命名；原子能力从真实首次支持版本开始，核对 Latest 及注册。",
             "CodeRules.atomic",
             "REVIEW",
@@ -221,7 +221,7 @@ public final class RuleCatalog {
             "N19"),
         r(
             "N20",
-            "app-api-dev",
+            "api-dev/references/app-api.md",
             "内部重命名不得改变公开 query、外部路径、wire 字段、默认值、顺序和错误契约。",
             "CodeRules.compatibility",
             "REVIEW",
@@ -230,7 +230,7 @@ public final class RuleCatalog {
             "N20"),
         r(
             "N21",
-            "app-api-dev",
+            "api-dev/references/app-api.md",
             "新增模块接通 modules、dependencyManagement、消费依赖和 classifier，主线升级后对齐父版本。",
             "MavenParents.check / CodeRules.maven",
             "PARTIAL",
@@ -240,7 +240,7 @@ public final class RuleCatalog {
             "MAVEN-PARSE"),
         r(
             "N22",
-            "app-api-dev",
+            "api-dev/references/app-api.md",
             "从 Handler.run 验证生命周期、非法输入和异常；覆盖转换、回填、集合及版本边界。",
             "CodeRules.tests",
             "REVIEW",
@@ -249,7 +249,7 @@ public final class RuleCatalog {
             "N22"),
         r(
             "N23",
-            "atomic-api-dev",
+            "api-dev/SKILL.md",
             "生成前预览，冲突拒绝覆盖，写入不越界；不改配置、断言或规则掩盖失败。",
             "GenerationPlan.apply / CodeRules.paths",
             "PARTIAL",
@@ -258,7 +258,7 @@ public final class RuleCatalog {
             "N23"),
         r(
             "N24",
-            "atomic-api-dev",
+            "api-dev/SKILL.md",
             "不在日志或 diagnostic 字段输出密码、令牌等敏感信息，沿用实际版权头和日志 API。",
             "CodeRules.privacy",
             "PARTIAL",

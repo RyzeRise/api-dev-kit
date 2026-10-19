@@ -241,7 +241,7 @@ public final class Generator {
     owner.addMember(method);
   }
 
-  private static String semanticText(Node node) {
+  static String semanticText(Node node) {
     Node copy = node.clone();
     copy.walk(n -> n.removeComment());
     return copy.toString().replace("\r\n", "\n");

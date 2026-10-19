@@ -18,9 +18,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Portable help failed' }
     & $entry init
     if ($LASTEXITCODE -ne 0) { throw 'Portable init failed' }
-    foreach ($name in @('atomic-api-dev', 'app-api-dev')) {
+    foreach ($name in @('api-dev')) {
         if (-not (Test-Path ".atomic-api/skills/$name/SKILL.md")) { throw "Skill missing: $name" }
     }
+    foreach ($ref in @('api-atomic.md', 'app-api.md')) { if (-not (Test-Path ".atomic-api/skills/api-dev/references/$ref")) { throw "Reference missing: $ref" } }
     if (Test-Path (Join-Path $localTool '.atomic-api')) { throw 'Working directory changed' }
     if ((Test-Path '.agents') -or (Test-Path '.claude') -or (Test-Path '.cursor')) { throw 'Agent-specific directories created' }
     & $entry new --operation queryCircuit --business circuit

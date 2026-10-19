@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JAR = ROOT / 'cli/target/atomic-api-0.6.0.jar'
+JAR = ROOT / 'cli/target/atomic-api-0.7.0.jar'
 
 
 @unittest.skipIf(os.name == 'nt', 'POSIX entry; Windows runs a PowerShell smoke test')
@@ -70,7 +70,7 @@ class LauncherTests(unittest.TestCase):
                 package.extractall(base / 'unpacked tools')
             with zipfile.ZipFile(JAR) as jar:
                 names = {n for n in jar.namelist() if n.startswith('init/skills/') and not n.endswith('/')}
-                expected = {'init/skills/atomic-api-dev/SKILL.md', 'init/skills/app-api-dev/SKILL.md'}
+                expected = {'init/skills/api-dev/SKILL.md', 'init/skills/api-dev/references/api-atomic.md', 'init/skills/api-dev/references/app-api.md'}
                 self.assertEqual(expected, names)
                 for name in names:
                     self.assertEqual((ROOT.parent / 'skills' / name.removeprefix('init/skills/')).read_bytes(), jar.read(name))
@@ -96,10 +96,10 @@ class LauncherTests(unittest.TestCase):
             result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'init'],
                                     cwd=project, env=env, capture_output=True, text=True)
             self.assertEqual(0, result.returncode, result.stderr)
-            self.assertTrue((project / '.atomic-api/skills/atomic-api-dev/SKILL.md').is_file())
-            self.assertTrue((project / '.atomic-api/skills/app-api-dev/SKILL.md').is_file())
+            self.assertTrue((project / '.atomic-api/skills/api-dev/SKILL.md').is_file())
+            self.assertTrue((project / '.atomic-api/skills/api-dev/references/app-api.md').is_file())
             self.assertFalse((tool / '.atomic-api').exists())
-            for skill in ['atomic-api-dev', 'app-api-dev']:
+            for skill in ['api-dev']:
                 self.assertEqual((ROOT.parent / 'skills' / skill / 'SKILL.md').read_bytes(),
                                  (project / '.atomic-api/skills' / skill / 'SKILL.md').read_bytes())
             for agent_dir in ['.agents', '.claude', '.cursor']:

@@ -48,9 +48,14 @@ final class Initializer {
     assets.put(
         ".atomic-api/schemas/api-contract.schema.json",
         resource("/schemas/api-contract.schema.json"));
+    assets.put(".atomic-api/atomic-profile.yaml", resource("/demo/atomic-profile.yaml"));
     assets.put(".atomic-api/.gitignore", "reports/\ncache/\nwork/\n");
     assets.put(".atomic-api/work/.gitignore", "*\n");
-    for (String file : List.of("atomic-api-dev/SKILL.md", "app-api-dev/SKILL.md")) {
+    for (String file :
+        List.of(
+            "api-dev/SKILL.md",
+            "api-dev/references/api-atomic.md",
+            "api-dev/references/app-api.md")) {
       Contract.require(
           !file.contains("..") && !file.startsWith("/"), "Unsafe skill asset: " + file);
       String text = resource("/init/skills/" + file);
@@ -69,6 +74,9 @@ final class Initializer {
       }
     }
     new GenerationPlan(root, changes, dependencies).apply();
+    if (Files.exists(root.resolve(".atomic-api/skills/atomic-api-dev"))
+        || Files.exists(root.resolve(".atomic-api/skills/app-api-dev")))
+      messages.add("MIGRATE: 新入口 .atomic-api/skills/api-dev/SKILL.md；旧 skill 及其定制保留，合并后手动移除旧目录。");
     return new Result(List.copyOf(messages), status);
   }
 
