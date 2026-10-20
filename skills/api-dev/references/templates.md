@@ -1,8 +1,8 @@
 # 模板选择与替换项
 
 从 [入口](../SKILL.md)选择 [Atomic](api-atomic.md) 或 [App](app-api.md) 后查本表。
-源码模板在 `tools/templates/`；打包进 JAR 的 `/templates/`，init 复制到业务仓库 `.atomic-api/templates/` 供阅读和增量开发参考。
-生成器读取 JAR 里的同一套模板，不读取安装副本；修改副本不会改变生成行为。升级与定制见 [配置手册](configuration.md#升级与定制)。
+模板随 Skill 位于 `templates/`（源码仓为 `skills/api-dev/templates/`），并打包进 JAR 的 `/templates/` 供生成器读取。
+生成器读取 JAR 里的同一套模板，不动态读取目录中的文件；修改可读模板后须重新构建 JAR 和打包。升级与定制见 [配置手册](configuration.md#升级与定制)。
 
 ## Atomic
 

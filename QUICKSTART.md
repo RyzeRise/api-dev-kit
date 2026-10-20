@@ -5,29 +5,30 @@
 
 ## 1. 放入工具并初始化
 
-使用维护者提供的 atomic-api-cli.zip，把包内 atomic-api 整个目录放到业务仓库 `.atomic-api/tool/`，保留 JAR。
-在业务仓库根目录执行（运行只需 Java 17+，不用全局安装、Maven 或 Python）：
+解压维护者提供的 `api-dev.zip`，把完整 `api-dev/` 放入所用 Agent 的 Skill 目录；安装位置不限，下面仅以业务仓库 `.skills/api-dev/` 为例。不要只复制 SKILL.md。
+
+以下检查与初始化可交给 Agent 按 Skill 执行，也可在**业务仓库根目录**手动执行（只需 Java 17+，无需全局安装、Maven 或 Python）：
 
 ```powershell
-& ".atomic-api/tool/atomic-api.cmd" -h
-& ".atomic-api/tool/atomic-api.cmd" init
+& ".skills/api-dev/scripts/atomic-api.cmd" -h
+& ".skills/api-dev/scripts/atomic-api.cmd" init
 ```
 
 Linux/macOS：
 
 ```bash
-sh .atomic-api/tool/atomic-api.sh -h
-sh .atomic-api/tool/atomic-api.sh init
+sh .skills/api-dev/scripts/atomic-api.sh -h
+sh .skills/api-dev/scripts/atomic-api.sh init
 ```
 
-init 准备 `.atomic-api/` 下的 skill、references、模板、两层独立 profile 和契约草稿。
-[配置手册](skills/api-dev/references/configuration.md)说明真实框架签名如何核对以及旧版本定制如何合并；init 保留已有文件，不等于已适配业务框架。
+若安装在其他位置，替换上述路径；脚本始终从自身位置找配套 JAR。init 只在目标业务仓库 `.atomic-api/` 准备两层 profile、契约、schema 和工作目录，保留已有文件，不复制 Skill。
+[配置手册](skills/api-dev/references/configuration.md)说明真实框架核对与旧版迁移；init 成功不等于业务已适配。
 
 ## 2. 给 Agent 简单任务
 
-> 请读取 `.atomic-api/skills/api-dev/SKILL.md`，开发 L2EVPN 的 EVPL 节点查询接入。先看已有实现，复用现有原子能力；方法已存在就增量修改。按手册选模板、实现和检查，并报告真实编译/测试和未验证项。
+> 请读取 `.skills/api-dev/SKILL.md`，开发 L2EVPN 的 EVPL 节点查询接入。先看已有实现，复用现有原子能力；方法已存在就增量修改。按手册选模板、实现和检查，并报告真实编译/测试和未验证项。
 
-修改 Service ID、补原子支持版本时直接说明实际任务即可，不需要用户先手写 YAML。
+安装在其他目录时修改提示中的路径。修改 Service ID、补原子支持版本时直接说明实际任务即可，不需要用户先手写 YAML。
 Agent 应先说明要复用和修改哪些文件；资料不足时指出具体文件或签名，不能从名称补造实现。
 
 ## 3. 看执行路线与交付
@@ -53,5 +54,5 @@ python -m unittest discover -s tools/tests -v
 python tools/package.py
 ```
 
-产物 `tools/dist/atomic-api-cli.zip`。模板、skill 和 references 都在 JAR 内；修改后需重新构建打包。
+产物 `tools/dist/api-dev.zip`，包含完整 Skill。源码 checkout 不含预编译 JAR，普通用户使用发布包；修改模板/Java 后重建，修改文档后重新打包。
 Windows 便携检查在构建打包后运行 `& ./tools/tests/windows.ps1`，真实业务仍需本项目之外的私有源码和依赖验证。

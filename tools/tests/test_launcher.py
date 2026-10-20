@@ -3,19 +3,21 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JAR = ROOT / 'cli/target/atomic-api-0.7.2.jar'
+JAR = ROOT / 'cli/target/atomic-api-0.8.0.jar'
+SKILL = ROOT.parent / 'skills/api-dev'
 
 
 @unittest.skipIf(os.name == 'nt', 'POSIX entry; Windows runs a PowerShell smoke test')
 class LauncherTests(unittest.TestCase):
     def command(self, *args, cwd=None, env=None):
-        launcher = ROOT / 'atomic-api.sh'
+        launcher = SKILL / 'scripts/atomic-api.sh'
         self.assertTrue(launcher.is_file(), 'atomic-api command entry is missing')
         return subprocess.run(['sh', str(launcher), *args], cwd=cwd, env=env,
                               capture_output=True, text=True)
@@ -58,88 +60,104 @@ class LauncherTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / 'contracts/single-handler.yaml').is_file())
 
 
-    def test_extracted_zip_runs_without_installation_and_preserves_cwd(self):
-        if not JAR.is_file():
-            self.skipTest('Build CLI before command integration tests')
-        with tempfile.TemporaryDirectory(prefix="atomic portable '") as tmp:
+    def test_self_contained_skill_runs_in_arbitrary_locations_and_after_move(self):
+        self.assertTrue(JAR.is_file(), 'Build CLI before portable integration tests')
+        with tempfile.TemporaryDirectory(prefix="api skill 中文 '") as tmp:
             base = Path(tmp)
-            archive = base / 'tool.zip'
-            result = subprocess.run(['python', str(ROOT / 'package.py'), '--output', str(archive)],
+            archive = base / 'skill.zip'
+            result = subprocess.run([sys.executable, str(ROOT / 'package.py'), '--output', str(archive)],
                                     capture_output=True, text=True)
             self.assertEqual(0, result.returncode, result.stderr)
             with zipfile.ZipFile(archive) as package:
-                package.extractall(base / 'unpacked tools')
+                self.assertEqual({'api-dev'}, {Path(n).parts[0] for n in package.namelist()})
+                package.extractall(base / 'unpacked')
+            bundle = base / 'unpacked/api-dev'
+            for source in [SKILL / 'SKILL.md', *SKILL.glob('references/*.md'),
+                           *SKILL.glob('scripts/*'), *SKILL.glob('templates/**/*')]:
+                if source.is_file():
+                    self.assertEqual(source.read_bytes(), (bundle / source.relative_to(SKILL)).read_bytes())
+            self.assertEqual(JAR.read_bytes(), (bundle / 'lib/atomic-api.jar').read_bytes())
             with zipfile.ZipFile(JAR) as jar:
-                names = {n for n in jar.namelist() if n.startswith('init/skills/') and not n.endswith('/')}
-                expected = {'init/skills/' + str(p.relative_to(ROOT.parent / 'skills'))
-                            for p in (ROOT.parent / 'skills').rglob('*.md') if p.is_file()}
-                self.assertEqual(expected, names)
-                for name in names:
-                    self.assertEqual((ROOT.parent / 'skills' / name.removeprefix('init/skills/')).read_bytes(), jar.read(name))
-                templates = {n for n in jar.namelist() if n.startswith('templates/') and not n.endswith('/')}
-                self.assertEqual({'templates/' + str(p.relative_to(ROOT / 'templates'))
-                                  for p in (ROOT / 'templates').rglob('*') if p.is_file()}, templates)
-                for name in templates:
-                    self.assertEqual((ROOT / name).read_bytes(), jar.read(name))
-            tool = base / 'unpacked tools/atomic-api'
-            project = base / 'business project'
-            project.mkdir()
+                self.assertFalse(any(n.startswith('init/skills/') for n in jar.namelist()))
+                for source in (SKILL / 'templates').rglob('*'):
+                    if source.is_file():
+                        self.assertEqual(source.read_bytes(), jar.read('templates/' + source.relative_to(SKILL / 'templates').as_posix()))
             home = base / 'home'
             home.mkdir()
-            # Only Java is on PATH; no installer or Maven is available.
             runtime = base / 'runtime'
             runtime.mkdir()
-            (runtime / 'java').symlink_to(shutil.which('java'))
-            (runtime / 'dirname').symlink_to(shutil.which('dirname'))
-            (runtime / 'sh').symlink_to('/bin/sh')
+            for name, source in [('java', shutil.which('java')), ('dirname', shutil.which('dirname')), ('sh', '/bin/sh')]:
+                (runtime / name).symlink_to(source)
             env = dict(os.environ, HOME=str(home), JAVA_HOME='', PATH=str(runtime))
-            self.assertIsNone(shutil.which('mvn', path=env['PATH']))
-            before = list(home.iterdir())
-            # Standard repository-local layout; no global command registration.
-            local_tool = project / '.atomic-api/tool'
-            local_tool.parent.mkdir()
-            shutil.move(str(tool), str(local_tool))
-            tool = local_tool
-            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'init'],
-                                    cwd=project, env=env, capture_output=True, text=True)
-            self.assertEqual(0, result.returncode, result.stderr)
-            self.assertTrue((project / '.atomic-api/skills/api-dev/SKILL.md').is_file())
-            self.assertTrue((project / '.atomic-api/skills/api-dev/references/app-api.md').is_file())
-            self.assertFalse((tool / '.atomic-api').exists())
-            for skill in ['api-dev']:
-                self.assertEqual((ROOT.parent / 'skills' / skill / 'SKILL.md').read_bytes(),
-                                 (project / '.atomic-api/skills' / skill / 'SKILL.md').read_bytes())
-            for original in (ROOT.parent / 'skills').rglob('*.md'):
-                relative = original.relative_to(ROOT.parent / 'skills')
-                self.assertEqual(original.read_bytes(), (project / '.atomic-api/skills' / relative).read_bytes())
-            for original in (ROOT / 'templates').rglob('*'):
-                if original.is_file():
-                    relative = original.relative_to(ROOT / 'templates')
-                    self.assertEqual(original.read_bytes(), (project / '.atomic-api/templates' / relative).read_bytes())
-            custom = project / '.atomic-api/templates/app/handler.java.tpl'
-            custom.write_text('user template customization', encoding='utf-8')
-            custom_ref = project / '.atomic-api/skills/api-dev/references/l2evpn-example.md'
-            custom_ref.write_text('user case customization', encoding='utf-8')
-            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'init'],
-                                    cwd=project, env=env, capture_output=True, text=True)
-            self.assertEqual(0, result.returncode, result.stderr)
-            self.assertEqual('user template customization', custom.read_text(encoding='utf-8'))
-            self.assertEqual('user case customization', custom_ref.read_text(encoding='utf-8'))
-            for agent_dir in ['.agents', '.claude', '.cursor']:
-                self.assertFalse((project / agent_dir).exists())
-            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'new', '--operation', 'queryL2evpnEvplNodes', '--business', 'l2evpn'],
-                                    cwd=project, env=env, capture_output=True, text=True)
-            self.assertEqual(0, result.returncode, result.stderr)
-            self.assertTrue((project / '.atomic-api/contracts/queryL2evpnEvplNodes.yaml').is_file())
-            self.assertEqual(before, list(home.iterdir()))
-            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), 'check', '--repo', 'missing directory'],
-                                    cwd=project, env=env, capture_output=True, text=True)
-            self.assertEqual(2, result.returncode)
-            (tool / 'lib/atomic-api/atomic-api.jar').unlink()
-            result = subprocess.run(['/bin/sh', str(tool / 'atomic-api.sh'), '-h'],
-                                    cwd=project, env=env, capture_output=True, text=True)
-            self.assertEqual(2, result.returncode)
-            self.assertIn('JAR', result.stderr)
+            env.pop('ATOMIC_API_JAR', None)
+            for layout in ['inside-project', 'outside-project']:
+                with self.subTest(layout=layout):
+                    project = base / ('business ' + str(len(list(base.glob('business *')))))
+                    project.mkdir()
+                    installed = project / '.skills/api-dev' if layout == 'inside-project' else base / 'outside 任意位置/api-dev'
+                    installed.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(bundle, installed)
+
+                    def run(*args):
+                        return subprocess.run(['/bin/sh', str(installed / 'scripts/atomic-api.sh'), *args],
+                                              cwd=project, env=env, capture_output=True, text=True)
+
+                    self.assertEqual(0, run('-h').returncode)
+                    result = run('init')
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertEqual({'profile.yaml', 'atomic-profile.yaml', 'contracts', 'schemas', 'work', '.gitignore'},
+                                     {p.name for p in (project / '.atomic-api').iterdir()})
+                    self.assertFalse((installed / '.atomic-api').exists())
+                    for path in ['.agents', '.claude', '.cursor']:
+                        self.assertFalse((project / path).exists())
+                    result = run('new', '--layer', 'app', '--operation', 'queryL2evpnEvplNodes', '--business', 'l2evpn')
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertTrue((project / '.atomic-api/contracts/queryL2evpnEvplNodes.yaml').is_file())
+                    result = run('new', '--layer', 'atomic', '--operation', 'getEvplService', '--business', 'evpl', '--api-version', 'R26C10')
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertTrue((project / '.atomic-api/contracts/atomic-getEvplService.yaml').is_file())
+                    # Explicit --repo must work without changing the caller's working directory.
+                    demo = base / ('demo ' + project.name)
+                    self.assertEqual(0, run('demo', '--repo', str(demo)).returncode)
+                    contract = demo / 'contracts/strict-handler.yaml'
+                    generation = ['generate', '--layer', 'app', '--repo', str(demo), '--contract', str(contract), '--apply']
+                    result = run(*generation)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    result = run(*generation)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertIn('NOOP', result.stdout)
+                    self.assertEqual(1, run('verify', '--layer', 'app', '--repo', str(demo), '--contract', str(contract)).returncode)
+                    legacy = {
+                        '.atomic-api/profile.yaml': 'user configuration',
+                        '.atomic-api/contracts/user.yaml': 'user contract',
+                        '.atomic-api/skills/api-dev/SKILL.md': 'old customized skill',
+                        '.atomic-api/templates/app/handler.java.tpl': 'old customized template',
+                        '.atomic-api/tool/user-file': 'old runtime',
+                    }
+                    for name, text in legacy.items():
+                        path = project / name
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_text(text, encoding='utf-8')
+                    custom = installed / 'references/l2evpn-example.md'
+                    custom.write_text('installed customization', encoding='utf-8')
+                    result = run('init')
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    self.assertIn('MIGRATE:', result.stdout)
+                    for name, text in legacy.items():
+                        self.assertEqual(text, (project / name).read_text(encoding='utf-8'))
+                    self.assertEqual('installed customization', custom.read_text(encoding='utf-8'))
+                    moved = base / ('moved ' + project.name) / 'api-dev'
+                    moved.parent.mkdir()
+                    shutil.move(str(installed), str(moved))
+                    installed = moved
+                    self.assertEqual(0, run('-h').returncode)
+                    self.assertEqual(0, run('init').returncode)
+                    self.assertEqual(2, run('check', '--repo', 'missing directory').returncode)
+                    (installed / 'lib/atomic-api.jar').unlink()
+                    result = run('-h')
+                    self.assertEqual(2, result.returncode)
+                    self.assertIn('JAR', result.stderr)
+            self.assertEqual([], list(home.iterdir()))
 
     def test_packaged_generators_read_templates_instead_of_hardcoded_structure(self):
         if not JAR.is_file():

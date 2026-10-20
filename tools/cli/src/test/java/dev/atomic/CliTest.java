@@ -33,8 +33,8 @@ class CliTest {
     assertTrue(Files.readString(profile).contains("待配置"));
     assertDoesNotThrow(() -> Profile.load(profile));
     assertDoesNotThrow(() -> Contract.load(contract));
-    assertTrue(Files.exists(root.resolve(".atomic-api/skills/api-dev/SKILL.md")));
-    assertTrue(Files.exists(root.resolve(".atomic-api/skills/api-dev/references/app-api.md")));
+    assertFalse(Files.exists(root.resolve(".atomic-api/skills")));
+    assertFalse(Files.exists(root.resolve(".atomic-api/templates")));
     assertTrue(Files.exists(root.resolve(".atomic-api/schemas/api-contract.schema.json")));
     try (var files = Files.list(root)) {
       assertEquals(
@@ -53,9 +53,6 @@ class CliTest {
     assertEquals(0, run("init", "--repo", root.toString()));
     assertTrue(Files.readString(root.resolve(".atomic-api/.gitignore")).contains("work/"));
     assertTrue(Files.exists(root.resolve(".atomic-api/work/.gitignore")));
-    for (String skill : java.util.List.of(".atomic-api/skills/api-dev/SKILL.md")) {
-      assertTrue(Files.readString(root.resolve(skill)).contains(".atomic-api/work/<operation>/"));
-    }
     String contract = root.resolve("contracts/single-handler.yaml").toString();
     assertEquals(0, run("generate", "--repo", root.toString(), "--contract", contract, "--apply"));
     assertEquals(
@@ -69,8 +66,6 @@ class CliTest {
               "atomic-profile.yaml",
               "contracts",
               "schemas",
-              "templates",
-              "skills",
               "work"),
           files.map(p -> p.getFileName().toString()).collect(java.util.stream.Collectors.toSet()));
     }
@@ -100,12 +95,12 @@ class CliTest {
   }
 
   @Test
-  void initUsesOneSkillDirectoryAndRejectsAgentOption() throws Exception {
+  void initOnlyCreatesBusinessMetadataAndRejectsAgentOption() throws Exception {
     assertEquals(2, run("init", "--repo", root.toString(), "--agent", "codex"));
     assertFalse(Files.exists(root.resolve(".atomic-api")));
     assertEquals(0, run("init", "--repo", root.toString()));
-    assertTrue(Files.exists(root.resolve(".atomic-api/skills/api-dev/SKILL.md")));
-    assertTrue(Files.exists(root.resolve(".atomic-api/skills/api-dev/references/app-api.md")));
+    assertFalse(Files.exists(root.resolve(".atomic-api/skills")));
+    assertFalse(Files.exists(root.resolve(".atomic-api/templates")));
     for (String directory : java.util.List.of(".agents", ".claude", ".cursor"))
       assertFalse(Files.exists(root.resolve(directory)));
     assertDoesNotThrow(

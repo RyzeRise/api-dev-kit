@@ -16,7 +16,7 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.7.2\n"
+            "atomic-api 0.8.0\n"
                 + "  atomic-api rules [--layer app|atomic] [--format text|json]\n"
                 + "  atomic-api init [--repo <path>]\n"
                 + "  atomic-api new --layer app|atomic --operation <operation> --business <domain>"
@@ -30,7 +30,7 @@ public final class Cli {
                 + "  Atomic check/verify 均要求真实 --contract；App 默认 --layer app。\n"
                 + "  source discovery: [--source-root <path>]... [--classpath <jar>]...\n"
                 + "所有命令默认在当前目录运行，可用 --repo <path> 指定项目。\n"
-                + "init 的配置、contract、Skill 均放入 .atomic-api/；Skill 统一由提示中的文件路径读取。\n"
+                + "init 只准备 .atomic-api/ 内的业务配置和契约；api-dev Skill 可安装在任意目录。\n"
                 + "生成默认 dry-run。业务占位会抛明确异常，检查结果为 SCAFFOLD。");
         return 0;
       }
@@ -125,8 +125,8 @@ public final class Cli {
         out.println(
             "下一步：App 核对 .atomic-api/profile.yaml；Atomic 核对 .atomic-api/atomic-profile.yaml。App"
                 + " 示例：atomic-api new --layer app --operation queryExample --business example。");
-        out.println("提示 Agent：请读取 .atomic-api/skills/api-dev/SKILL.md，按其中流程完成任务。");
-        out.println("仓库内便携工具约定放在 .atomic-api/tool/，Skill 会优先调用该目录的脚本。");
+        out.println("提示 Agent：请读取已安装 api-dev/ 内的 SKILL.md，按其中流程完成任务。");
+        out.println("从该 Skill 自身的 scripts/ 调用工具；默认处理当前业务仓库，也可使用 --repo。");
         return 0;
       }
       if (args[0].equals("demo")) {
@@ -209,7 +209,7 @@ public final class Cli {
                           "schemaVersion",
                           3,
                           "toolVersion",
-                          "0.7.2",
+                          "0.8.0",
                           "layer",
                           "app",
                           "scope",

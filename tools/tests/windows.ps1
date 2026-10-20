@@ -1,53 +1,81 @@
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $toolRoot = Split-Path -Parent $PSScriptRoot
-$testRoot = Join-Path ([IO.Path]::GetTempPath()) ('atomic cli ' + [Guid]::NewGuid().ToString('N'))
-$projectDir = Join-Path $testRoot 'business project'
-$portableRoot = Join-Path $testRoot 'portable tools'
-New-Item -ItemType Directory -Path $projectDir -Force | Out-Null
-Expand-Archive -LiteralPath (Join-Path $toolRoot 'dist/atomic-api-cli.zip') -DestinationPath $portableRoot
-$localTool = Join-Path $projectDir '.atomic-api/tool'
-New-Item -ItemType Directory -Path (Split-Path -Parent $localTool) -Force | Out-Null
-# Both paths are explicit children of this test's unique temporary directory.
-if ((Test-Path $localTool) -or -not (Test-Path (Join-Path $portableRoot 'atomic-api'))) { throw 'Unexpected portable paths' }
-Move-Item -LiteralPath (Join-Path $portableRoot 'atomic-api') -Destination $localTool
-$entry = Join-Path $localTool 'atomic-api.cmd'
-Push-Location $projectDir
-try {
-    & $entry -h
-    if ($LASTEXITCODE -ne 0) { throw 'Portable help failed' }
-    & $entry init
-    if ($LASTEXITCODE -ne 0) { throw 'Portable init failed' }
-    foreach ($name in @('api-dev')) {
-        if (-not (Test-Path ".atomic-api/skills/$name/SKILL.md")) { throw "Skill missing: $name" }
+$testRoot = Join-Path ([IO.Path]::GetTempPath()) ("api skill ' " + [Guid]::NewGuid().ToString('N'))
+$portableRoot = Join-Path $testRoot 'unpacked'
+Expand-Archive -LiteralPath (Join-Path $toolRoot 'dist/api-dev.zip') -DestinationPath $portableRoot
+$bundle = Join-Path $portableRoot 'api-dev'
+foreach ($layout in @('inside', 'outside')) {
+    $projectDir = Join-Path $testRoot "business $layout"
+    New-Item -ItemType Directory -Path $projectDir -Force | Out-Null
+    $skillDir = if ($layout -eq 'inside') {
+        Join-Path $projectDir '.skills/api-dev'
+    } else {
+        Join-Path $testRoot 'arbitrary shared location/api-dev'
     }
-    foreach ($ref in @('api-atomic.md', 'app-api.md', 'configuration.md', 'templates.md', 'rules.md', 'l2evpn-example.md')) { if (-not (Test-Path ".atomic-api/skills/api-dev/references/$ref")) { throw "Reference missing: $ref" } }
-    foreach ($template in @('atomic/implementation.java.tpl', 'app/handler.java.tpl', 'atomic/tests.java.tpl', 'app/tests.java.tpl')) { if (-not (Test-Path ".atomic-api/templates/$template")) { throw "Template missing: $template" } }
-    if (Test-Path (Join-Path $localTool '.atomic-api')) { throw 'Working directory changed' }
-    if ((Test-Path '.agents') -or (Test-Path '.claude') -or (Test-Path '.cursor')) { throw 'Agent-specific directories created' }
-    & $entry new --operation queryCircuit --business circuit
-    if ($LASTEXITCODE -ne 0) { throw 'Repository-local draft failed' }
-    [IO.File]::WriteAllText((Join-Path $projectDir '.atomic-api/profile.yaml'), 'user configuration')
-    & $entry init
-    if ($LASTEXITCODE -ne 0 -or (Get-Content '.atomic-api/profile.yaml' -Raw) -ne 'user configuration') { throw 'Configuration changed' }
-    & $entry check --repo 'missing directory'
-    if ($LASTEXITCODE -ne 2) { throw 'Argument/exit code changed' }
-} finally {
-    Pop-Location
+    New-Item -ItemType Directory -Path (Split-Path -Parent $skillDir) -Force | Out-Null
+    Copy-Item -LiteralPath $bundle -Destination $skillDir -Recurse
+    $entry = Join-Path $skillDir 'scripts/atomic-api.cmd'
+    Push-Location $projectDir
+    try {
+        & $entry -h
+        if ($LASTEXITCODE -ne 0) { throw 'Skill help failed' }
+        & $entry init
+        if ($LASTEXITCODE -ne 0) { throw 'Business init failed' }
+        foreach ($asset in @('SKILL.md', 'lib/atomic-api.jar', 'references/app-api.md', 'templates/app/handler.java.tpl', 'templates/atomic/tests.java.tpl')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $skillDir $asset))) { throw "Skill asset missing: $asset" }
+        }
+        foreach ($unexpected in @('.atomic-api/skills', '.atomic-api/templates', '.atomic-api/tool', '.agents', '.claude', '.cursor')) {
+            if (Test-Path -LiteralPath $unexpected) { throw "Unexpected directory: $unexpected" }
+        }
+        if (Test-Path -LiteralPath (Join-Path $skillDir '.atomic-api')) { throw 'Working directory changed' }
+        & $entry new --layer app --operation queryL2evpnEvplNodes --business l2evpn
+        if ($LASTEXITCODE -ne 0) { throw 'App draft failed' }
+        & $entry new --layer atomic --operation getEvplService --business evpl --api-version R26C10
+        if ($LASTEXITCODE -ne 0) { throw 'Atomic draft failed' }
+        $demo = Join-Path $testRoot "demo $layout"
+        & $entry demo --repo $demo
+        if ($LASTEXITCODE -ne 0) { throw 'Demo failed' }
+        $contract = Join-Path $demo 'contracts/strict-message.yaml'
+        & $entry generate --repo $demo --contract $contract --apply
+        if ($LASTEXITCODE -ne 0) { throw 'Generation failed' }
+        $repeated = & $entry generate --repo $demo --contract $contract --apply
+        if ($LASTEXITCODE -ne 0 -or -not ($repeated -match 'NOOP')) { throw 'Repeated generation is not NOOP' }
+        & $entry verify --repo $demo --contract $contract
+        if ($LASTEXITCODE -ne 1) { throw 'Unimplemented business was not blocked' }
+        $legacy = @{
+            '.atomic-api/profile.yaml' = 'user configuration'
+            '.atomic-api/contracts/user.yaml' = 'user contract'
+            '.atomic-api/skills/api-dev/SKILL.md' = 'old custom skill'
+            '.atomic-api/templates/app/handler.java.tpl' = 'old custom template'
+            '.atomic-api/tool/user-file' = 'old runtime'
+        }
+        foreach ($name in $legacy.Keys) {
+            $file = Join-Path $projectDir $name
+            New-Item -ItemType Directory -Path (Split-Path -Parent $file) -Force | Out-Null
+            [IO.File]::WriteAllText($file, $legacy[$name])
+        }
+        $custom = Join-Path $skillDir 'references/l2evpn-example.md'
+        [IO.File]::WriteAllText($custom, 'installed customization')
+        & $entry init
+        if ($LASTEXITCODE -ne 0) { throw 'Repeated init failed' }
+        foreach ($name in $legacy.Keys) {
+            if ([IO.File]::ReadAllText((Join-Path $projectDir $name)) -ne $legacy[$name]) { throw "Customization changed: $name" }
+        }
+        if ([IO.File]::ReadAllText($custom) -ne 'installed customization') { throw 'Installed Skill changed' }
+        $moved = Join-Path $testRoot "moved $layout/api-dev"
+        New-Item -ItemType Directory -Path (Split-Path -Parent $moved) -Force | Out-Null
+        Move-Item -LiteralPath $skillDir -Destination $moved
+        $entry = Join-Path $moved 'scripts/atomic-api.cmd'
+        & $entry -h
+        if ($LASTEXITCODE -ne 0) { throw 'Moved Skill failed' }
+        & $entry init
+        if ($LASTEXITCODE -ne 0) { throw 'Moved Skill init failed' }
+        & $entry check --repo 'missing directory'
+        if ($LASTEXITCODE -ne 2) { throw 'Argument/exit code changed' }
+    } finally {
+        Pop-Location
+    }
 }
-$strictProject = Join-Path $testRoot 'strict project'
-& $entry demo --repo $strictProject
-if ($LASTEXITCODE -ne 0) { throw 'Demo failed' }
-& $entry init --repo $strictProject
-if ($LASTEXITCODE -ne 0) { throw 'Strict init failed' }
-$contract = Join-Path $strictProject 'contracts/strict-message.yaml'
-& $entry generate --repo $strictProject --contract $contract --apply
-if ($LASTEXITCODE -ne 0) { throw 'Generation failed' }
-& $entry verify --repo $strictProject --contract $contract
-if ($LASTEXITCODE -ne 1) { throw 'Unimplemented business was not blocked' }
-& $entry new --repo $strictProject --operation queryOther --business resource
-if ($LASTEXITCODE -ne 0) { throw 'New operation failed' }
-& $entry new --repo $strictProject --operation queryOther --business resource
-if ($LASTEXITCODE -ne 1) { throw 'Duplicate contract overwritten' }
-Write-Output 'Windows portable code-tool checks passed.'
+Write-Output 'Self-contained Skill portable checks passed.'
 exit 0

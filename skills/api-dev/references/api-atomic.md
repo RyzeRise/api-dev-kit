@@ -16,7 +16,7 @@
 确认没有同一能力和契约，通过 [适配检查表](configuration.md#生成前适配检查表)后运行：
 
 ```text
-sh .atomic-api/tool/atomic-api.sh new --layer atomic --operation getEvplService --business evpl --api-version R26C10
+sh "$SKILL_DIR/scripts/atomic-api.sh" new --layer atomic --operation getEvplService --business evpl --api-version R26C10
 ```
 
 输出 `.atomic-api/contracts/atomic-getEvplService.yaml`，Atomic 专属 `layer: atomic, version: 1`，与 App v1 不同。
@@ -25,8 +25,8 @@ releases 按真实支持先后列 id、固定 implementation 类名、完整 ann
 latestAnnotations 按框架填写列表，无需注解时显式 `[]`。从已有源码核对注解类型和值；生成器不发明注册机制。
 
 ```text
-sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --dry-run
-sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --apply
+sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --dry-run
+sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --apply
 ```
 
 预览接口/DTO/版本实现/Latest 与测试待办；实现真实底层调用后验收。测试待办位于 `.atomic-api/work/atomic-<operation>/tests/<Operation>TestPlan.java`。
@@ -92,10 +92,10 @@ sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api
 下方 verify 命令仅适用于已适配契约的平面模型；嵌套模型按上一节编译、消费者及容器测试验收。
 
 ```text
-sh .atomic-api/tool/atomic-api.sh verify --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --format json
+sh "$SKILL_DIR/scripts/atomic-api.sh" verify --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --format json
 ```
 
 核对实际注册发现、管理器选择和 Latest；注解存在不能证明动态接线成功。
 测试应覆盖各支持版本、首支持、历史不支持、真实成功、非法参数、查无数据与底层失败，捕获底层请求并断言字段规范化及原因保留。
 新模块还需核对父 modules、dependencyManagement、消费者与 classifier，合主线后复核 parent.version。
-完成条件统一按入口执行。Windows 将命令前缀换为 `& ".atomic-api/tool/atomic-api.cmd"`。
+完成条件统一按入口执行。Windows 将命令前缀换为 `& "$skillDir/scripts/atomic-api.cmd"`。

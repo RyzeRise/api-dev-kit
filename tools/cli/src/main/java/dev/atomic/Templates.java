@@ -18,10 +18,6 @@ final class Templates {
     }
   }
 
-  static List<String> files() {
-    return resource("manifest.txt").lines().filter(s -> !s.isBlank()).toList();
-  }
-
   static String render(String name, String... pairs) {
     Contract.require(pairs.length % 2 == 0, "Template bindings must be key/value pairs");
     var values = new HashMap<String, String>();

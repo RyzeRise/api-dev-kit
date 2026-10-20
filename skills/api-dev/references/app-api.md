@@ -38,7 +38,7 @@
 Linux/macOS：
 
 ```text
-sh .atomic-api/tool/atomic-api.sh new --layer app --operation queryL2evpnEvplNodes --business l2evpn
+sh "$SKILL_DIR/scripts/atomic-api.sh" new --layer app --operation queryL2evpnEvplNodes --business l2evpn
 ```
 
 填写 `.atomic-api/contracts/queryL2evpnEvplNodes.yaml`：
@@ -58,8 +58,8 @@ String 外部响应的 responseBindings 只有保留键 message，其值为业�
 class/sourceRoot、target、steps 按真实源码及 profile 的角色约束填写；复用已有类时显式核对 target，不能只沿用默认名称。泛型逗号类型使用 YAML 引号。
 
 ```text
-sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --dry-run
-sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --apply
+sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --dry-run
+sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --apply
 ```
 
 预览检查命名、路径、类型和既有文件。生成 DTO、Facade、Handler、两个 Converter、Delegate；真实多来源汇总才有 Builder。
@@ -72,7 +72,7 @@ sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/co
 适配检查契约前，只做辅助扫描（读取真实 profile，不要求虚构契约）：
 
 ```text
-sh .atomic-api/tool/atomic-api.sh check --layer app --format json
+sh "$SKILL_DIR/scripts/atomic-api.sh" check --layer app --format json
 ```
 
 扫描不保证只覆盖本次业务；无 v2 契约的规则可能 NOT_EVALUATED。缺类型时补项目真实源码/依赖或重复 `--classpath <真实JAR>`。
@@ -87,8 +87,8 @@ sh .atomic-api/tool/atomic-api.sh check --layer app --format json
 真实结构已适配的 v2 契约：
 
 ```text
-sh .atomic-api/tool/atomic-api.sh verify --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --format json
+sh "$SKILL_DIR/scripts/atomic-api.sh" verify --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --format json
 ```
 
 App v1 只用于存量 generate/check，不能代替 v2 verify。完成条件统一按入口执行。
-Windows 将所有命令前缀换为 `& ".atomic-api/tool/atomic-api.cmd"`。
+Windows 将所有命令前缀换为 `& "$skillDir/scripts/atomic-api.cmd"`。

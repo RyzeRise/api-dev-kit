@@ -1,7 +1,7 @@
 # 首次接入与配置核对
 
 仅在首次接入或框架变化时阅读；日常按 [App](app-api.md) / [Atomic](api-atomic.md) 操作。
-执行 `sh .atomic-api/tool/atomic-api.sh init` 创建草稿；Windows 使用入口中对应命令。
+使用入口中确定的 SKILL_DIR，在业务仓库根执行 `sh "$SKILL_DIR/scripts/atomic-api.sh" init`；Windows 使用对应命令。
 两份 profile 独立，init 保留既有文件；配置必须由真实源码与依赖签名核对。
 
 ## 生成前适配检查表
@@ -99,6 +99,7 @@ init 仅提供 com.example 草稿，不能代表真实项目注册方式。注�
 
 ## 升级与定制
 
-新版本包内 JAR 的 skill、references、模板随 init 复制到 `.atomic-api/`；既有文件全部 KEEP。
-升级时在另一个空目录 init，再逐文件比较、合并 skill/profile/模板定制；旧 atomic-api-dev/app-api-dev 不自动删除。
-阅读模板的副本可定制，但生成器读取 JAR 内模板；要改变生成行为须修改本工具源码模板、验证并重打包，不能只改已安装副本。
+升级以完整 `api-dev/` 目录为单位：先解压到新位置，比较合并旧 Skill 的脚本、references 和模板定制，再更新 Agent 引用路径。
+init 只准备 `.atomic-api/` 的业务配置/契约/schema/工作目录，保留既有文件，不复制或升级 Skill，也不创建 Agent 专属目录。
+旧 `.atomic-api/skills/`、`.atomic-api/tool/`、`.atomic-api/templates/` 会保留并提示迁移；确认定制已合并、业务配置未变后再手动移除旧安装，避免 Agent 继续读取旧入口。
+生成器读 JAR 内模板；修改 Skill 中可读模板后须重建 JAR 并重打包，不能只改文件就认为生成行为已更新。

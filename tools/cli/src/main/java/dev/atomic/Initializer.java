@@ -51,25 +51,6 @@ final class Initializer {
     assets.put(".atomic-api/atomic-profile.yaml", resource("/demo/atomic-profile.yaml"));
     assets.put(".atomic-api/.gitignore", "reports/\ncache/\nwork/\n");
     assets.put(".atomic-api/work/.gitignore", "*\n");
-    for (String file :
-        List.of(
-            "api-dev/SKILL.md",
-            "api-dev/references/api-atomic.md",
-            "api-dev/references/app-api.md",
-            "api-dev/references/rules.md",
-            "api-dev/references/templates.md",
-            "api-dev/references/configuration.md",
-            "api-dev/references/l2evpn-example.md")) {
-      Contract.require(
-          !file.contains("..") && !file.startsWith("/"), "Unsafe skill asset: " + file);
-      String text = resource("/init/skills/" + file);
-      assets.put(".atomic-api/skills/" + file, text);
-    }
-    for (String file : Templates.files()) {
-      Contract.require(!file.contains("..") && !file.startsWith("/"), "Unsafe template asset");
-      assets.put(".atomic-api/templates/" + file, Templates.resource(file));
-    }
-    assets.put(".atomic-api/templates/manifest.txt", Templates.resource("manifest.txt"));
     List<GenerationPlan.Change> changes = new ArrayList<>();
     List<String> messages = new ArrayList<>();
     for (var asset : assets.entrySet()) {
@@ -83,9 +64,10 @@ final class Initializer {
       }
     }
     new GenerationPlan(root, changes, dependencies).apply();
-    if (Files.exists(root.resolve(".atomic-api/skills/atomic-api-dev"))
-        || Files.exists(root.resolve(".atomic-api/skills/app-api-dev")))
-      messages.add("MIGRATE: 新入口 .atomic-api/skills/api-dev/SKILL.md；旧 skill 及其定制保留，合并后手动移除旧目录。");
+    for (String legacy : List.of("skills", "tool", "templates"))
+      if (Files.exists(root.resolve(".atomic-api/" + legacy)))
+        messages.add("MIGRATE: 保留旧目录 .atomic-api/" + legacy
+            + "；新版本使用完整 api-dev Skill，安装位置不限。比较合并定制后再手动移除旧目录。");
     return new Result(List.copyOf(messages), status);
   }
 

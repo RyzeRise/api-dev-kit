@@ -351,19 +351,24 @@ class AtomicToolTest {
   }
 
   @Test
-  void migrationPreservesOldCustomizationAndInstallsAllReferences() throws Exception {
-    Path old = root.resolve(".atomic-api/skills/atomic-api-dev/SKILL.md");
-    Files.createDirectories(old.getParent());
-    Files.writeString(old, "user custom instructions");
+  void migrationPreservesLegacySkillToolAndTemplateCustomization() throws Exception {
+    var legacy = Map.of(
+        ".atomic-api/skills/atomic-api-dev/SKILL.md", "old custom instructions",
+        ".atomic-api/skills/api-dev/SKILL.md", "current custom instructions",
+        ".atomic-api/templates/app/handler.java.tpl", "custom template",
+        ".atomic-api/tool/user-file", "old runtime");
+    for (var entry : legacy.entrySet()) {
+      Path file = root.resolve(entry.getKey());
+      Files.createDirectories(file.getParent());
+      Files.writeString(file, entry.getValue());
+    }
     var result = Initializer.initialize(root);
-    assertEquals("user custom instructions", Files.readString(old));
     assertTrue(result.files().stream().anyMatch(s -> s.startsWith("MIGRATE:")));
-    for (String file : List.of("SKILL.md", "references/api-atomic.md", "references/app-api.md"))
-      assertTrue(Files.exists(root.resolve(".atomic-api/skills/api-dev/" + file)));
-    Path main = root.resolve(".atomic-api/skills/api-dev/SKILL.md");
-    Files.writeString(main, "new custom instructions");
     Initializer.initialize(root);
-    assertEquals("new custom instructions", Files.readString(main));
+    for (var entry : legacy.entrySet())
+      assertEquals(entry.getValue(), Files.readString(root.resolve(entry.getKey())));
+    assertFalse(Files.exists(root.resolve(".atomic-api/skills/api-dev/references")));
+    assertFalse(Files.exists(root.resolve(".atomic-api/templates/atomic")));
   }
 
   @Test

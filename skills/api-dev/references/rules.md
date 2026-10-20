@@ -4,8 +4,8 @@
 主要业务约束见 [Skill 入口](../SKILL.md)，开发路线见 [Atomic](api-atomic.md) / [App](app-api.md)。
 
 ```text
-sh .atomic-api/tool/atomic-api.sh rules --layer app --format json
-sh .atomic-api/tool/atomic-api.sh rules --layer atomic --format json
+sh "$SKILL_DIR/scripts/atomic-api.sh" rules --layer app --format json
+sh "$SKILL_DIR/scripts/atomic-api.sh" rules --layer atomic --format json
 ```
 
 ## App：N01～N24

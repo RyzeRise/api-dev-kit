@@ -19,14 +19,23 @@ description: 用于本项目 Java API 的新增、修改、支持版本扩展和
 
 先查方法及所属类：已有方法直接增量修改；新方法若复用已有类也优先增量，不因方法是新的就生成整套类。
 提到 EVPL 不代表两层都要开发；先查底层能力是否已经存在。
-写代码前读所选手册。手册链接 [模板及替换项](references/templates.md)；初始化后模板位于 `.atomic-api/templates/`。
+写代码前读所选手册。手册链接 [模板及替换项](references/templates.md)；模板位于本 Skill 的 `templates/`。
 [L2EVPN 完整案例](references/l2evpn-example.md)用于校准查询 EVPL 节点与修改 EVPL Service ID，不规定其他业务的命名、字段或版本。
 
 ## 2. 开始开发
 
 在业务仓库根目录读 AGENTS.md（若有）、git status、相关接口与测试，向用户简述入口、复用能力、拟改文件和具体缺失资料。
 先划分 MR 边界：只要本次需要修改 api-atomic（包括新增能力、修改已有方法、补版本及相关原子公共契约），必须先单独提交 Atomic MR；不能与 App 改动混入同一 MR，也不能只拆 commit 代替拆 MR。
-检查工具：Linux/macOS 执行 `sh .atomic-api/tool/atomic-api.sh -h`；Windows PowerShell 执行 `& ".atomic-api/tool/atomic-api.cmd" -h`。
+把当前 SKILL.md 所在目录的绝对路径记为 SKILL_DIR（PowerShell 为 $skillDir），不要假定安装位置。在业务仓库根目录设置并检查：
+
+```bash
+SKILL_DIR='/实际安装位置/api-dev'
+sh "$SKILL_DIR/scripts/atomic-api.sh" -h
+sh "$SKILL_DIR/scripts/atomic-api.sh" init
+```
+
+Windows PowerShell 设置 `$skillDir = 'C:/实际安装位置/api-dev'`，使用 `& "$skillDir/scripts/atomic-api.cmd"` 加同样参数。
+脚本从自身位置找 JAR，命令默认处理当前业务仓库；也可加 `--repo <业务仓库>`。init 只准备业务资料，不复制或更新 Skill。
 工具只需 Java 17+；业务编译 JDK 沿用项目配置。App 用 `.atomic-api/profile.yaml`，Atomic 用 `.atomic-api/atomic-profile.yaml`。
 生成前逐项核对 [适配检查表](references/configuration.md#生成前适配检查表)；首次配置与迁移也在该文档，不将 com.example 草稿当真实框架。
 

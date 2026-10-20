@@ -1,11 +1,11 @@
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
-$toolRoot = $PSScriptRoot
+$skillRoot = Split-Path -Parent $PSScriptRoot
 $jarPath = $env:ATOMIC_API_JAR
 if (-not $jarPath) {
-    $jarPath = Join-Path $toolRoot 'lib/atomic-api/atomic-api.jar'
+    $jarPath = Join-Path $skillRoot 'lib/atomic-api.jar'
     if (-not (Test-Path -LiteralPath $jarPath -PathType Leaf)) {
-        $jarPath = Join-Path $toolRoot 'cli/target/atomic-api-0.7.2.jar'
+        $jarPath = Join-Path $skillRoot '../../tools/cli/target/atomic-api-0.8.0.jar'
     }
 }
 if (-not (Test-Path -LiteralPath $jarPath -PathType Leaf)) {

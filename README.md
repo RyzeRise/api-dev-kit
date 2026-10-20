@@ -8,32 +8,45 @@
 
 | 位置 | 存在理由 |
 |---|---|
-| `skills/` | 单一 api-dev/SKILL.md 入口，references/api-atomic.md 和 app-api.md 分别指导两层开发。 |
-| `tools/` | 代码生成/检查工具的入口、Java 实现、模板、schema，以及保证其正确性的测试和打包程序。 |
+| `skills/api-dev/` | 自包含 Skill：入口、两层手册、运行脚本和模板；发布包另包含配套 JAR。 |
+| `tools/` | 维护者使用的 Java 实现、schema、测试和打包程序。 |
 
-根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.7.2。
+根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.8.0。
 
-## 放进业务仓库
+## 安装 Skill
 
-获取维护者提供的 `atomic-api-cli.zip`，或按下文“工具维护与试用”从源码构建并打包。解压 ZIP，把包内 `atomic-api/` 整个目录放到业务仓库的 `.atomic-api/tool/`。不能只复制入口脚本，配套 JAR 也必须保留。工具命令和包内目录仍使用 `atomic-api`。
+获取维护者提供的 `api-dev.zip`，将包内完整 `api-dev/` 放到所用 Agent 的 Skill 目录，例如 `.skills/api-dev/`；也可放在仓库外任意位置。不要拆开目录，脚本、JAR、手册和模板都随 Skill 分发。
 
-在**业务仓库根目录**执行一次：
+```text
+api-dev/
+  SKILL.md
+  references/
+  scripts/                 # 各平台入口
+  lib/atomic-api.jar
+  templates/               # 可读、可复用模板
+```
+
+在**业务仓库根目录**运行，以下变量替换为实际 Skill 绝对路径。Linux/macOS：
 
 ```bash
-sh .atomic-api/tool/atomic-api.sh init
+SKILL_DIR='/实际安装位置/api-dev'
+sh "$SKILL_DIR/scripts/atomic-api.sh" init
 ```
 
 Windows PowerShell：
 
 ```powershell
-& ".atomic-api/tool/atomic-api.cmd" init
+$skillDir = 'C:/实际安装位置/api-dev'
+& "$skillDir/scripts/atomic-api.cmd" init
 ```
 
-只需 Java 17+，无需全局安装、Maven、Python、管理员权限或修改 PATH。init 只生成 `.atomic-api/` 内的配置、契约示例和统一 api-dev skill（含路线、案例、规范对照与配置文档）和可阅读模板，保留已有文件。维护者核对 profile 后，对支持读取文件及执行命令的任意 Agent 提示：
+运行只需 Java 17+，无需全局安装、Maven、Python、管理员权限或修改 PATH。脚本从自身位置找 JAR，业务资料统一在 `.atomic-api/`；init 保留已有配置，不复制或更新 Skill。
 
-> 请读取 `.atomic-api/skills/api-dev/SKILL.md`，开发 L2EVPN 的 EVPL 节点查询接入，先读已有实现并复用真实底层能力；已经存在则核对并增量修改。
+然后直接提示 Agent（`.skills/` 仅为安装示例）：
 
-同一入口按任务读取 `references/api-atomic.md` 或 `references/app-api.md`。不配置各 Agent 专用目录。init 新建统一入口并保留已有文件；升级不会覆盖 profile、skill 定制，也不删除旧 atomic-api-dev/app-api-dev。对照合并定制后再移除旧目录，避免 Agent 继续读旧流程。
+> 请读取 `.skills/api-dev/SKILL.md`，开发 L2EVPN 的 EVPL 节点查询接入，先读已有实现并复用真实底层能力；已经存在则核对并增量修改。
+
+升级时在新目录展开完整 Skill，比较合并定制后更新引用路径。旧 `.atomic-api/skills/`、tool/、templates/ 保留并提示迁移，不自动覆盖或删除；业务 profile/contracts 继续沿用。详见 [配置与迁移](skills/api-dev/references/configuration.md#升级与定制)。
 
 ## 项目配置（维护者一次核对）
 
@@ -56,8 +69,8 @@ Atomic 配置的 roles 为 apiInterface/request/response/implementation/latest�
 人类先读 [Skill 入口](skills/api-dev/SKILL.md) 的共用规范和分流表，再读对应路线文档；[逐条规范对照](skills/api-dev/references/rules.md)单独供审查。App 保留 N01～N24，Atomic 使用 A01～A08；编号分别对应真实检查代码、生成支持和未覆盖项，不能用另一层的结果验收。App 清单在 RuleCatalog.java，Atomic 清单在 AtomicTool.java；测试要求文档与代码一致。
 
 ```bash
-sh .atomic-api/tool/atomic-api.sh rules --layer app
-sh .atomic-api/tool/atomic-api.sh rules --layer atomic --format json
+sh "$SKILL_DIR/scripts/atomic-api.sh" rules --layer app
+sh "$SKILL_DIR/scripts/atomic-api.sh" rules --layer atomic --format json
 ```
 
 verify 的 text/JSON 报告包含每条规范的 PASS、FAIL、INCOMPLETE、REVIEW_REQUIRED 或 NOT_EVALUATED。JSON 分开报告 structureStatus 与规范 status：自动结构通过但仍需审查时，status 为 REVIEW_REQUIRED。只有自动检查范围内无问题才记 PASS；JSON、版本、兼容性和测试执行等依赖业务证据的规则，会列出检查位置、未覆盖项和所需证据，不会假装静态证明。
@@ -66,25 +79,25 @@ Helper 单一公开入口、组件注解、显式日志出口、异常文本语�
 
 ## 开发流程
 
-以下仅为**模板已适配的新操作**示例；已有 L2EVPN 命名、内部节点和响应回填不能直接套通用模板，先按 App 手册核对。命令在业务仓库根执行，Windows 将前缀换为 `& ".atomic-api/tool/atomic-api.cmd"`：
+以下仅为**模板已适配的新操作**示例；已有 L2EVPN 命名、内部节点和响应回填不能直接套通用模板，先按 App 手册核对。命令在业务仓库根执行，Windows 使用上文 $skillDir，将前缀换为 `& "$skillDir/scripts/atomic-api.cmd"`：
 
 ```bash
-sh .atomic-api/tool/atomic-api.sh new --layer app --operation queryL2evpnEvplNodes --business l2evpn
+sh "$SKILL_DIR/scripts/atomic-api.sh" new --layer app --operation queryL2evpnEvplNodes --business l2evpn
 # Agent 填写输出契约中的真实业务字段、外部响应与映射
-sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --dry-run
-sh .atomic-api/tool/atomic-api.sh generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --apply
+sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --dry-run
+sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --apply
 # 实现真实业务后检查并按 FIX 修复
-sh .atomic-api/tool/atomic-api.sh verify --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml
+sh "$SKILL_DIR/scripts/atomic-api.sh" verify --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml
 ```
 
 Atomic 示例：
 
 ```bash
-sh .atomic-api/tool/atomic-api.sh new --layer atomic --operation getEvplService --business evpl --api-version R26C10
+sh "$SKILL_DIR/scripts/atomic-api.sh" new --layer atomic --operation getEvplService --business evpl --api-version R26C10
 # 填写 Atomic 契约的真实字段、用途、releases 注册注解及 latestAnnotations
-sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --dry-run
-sh .atomic-api/tool/atomic-api.sh generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --apply
-sh .atomic-api/tool/atomic-api.sh verify --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml
+sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --dry-run
+sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --apply
+sh "$SKILL_DIR/scripts/atomic-api.sh" verify --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml
 ```
 
 Atomic 单独生成接口、公共 DTO、版本实现及配置模式的 Latest 骨架；不生成 Facade/Handler/Delegate，不自动发明注册表或真实 REST 调用。releases 仅列真实支持版本，顺序和首支持证据需审查。两种已支持的 Latest 结构若不适合实际项目，先适配工具，不能改框架凑模板。
@@ -97,27 +110,27 @@ verify 退出 0/STRUCTURE_READY 只表示覆盖范围内结构可接受，业务
 
 ## 实际模板与增量开发
 
-两套实际模板位于 `tools/templates/atomic/`、`tools/templates/app/`，DTO 共用 `common/`。
-它们由 AtomicTool/Generator 读取并装配，init 提供 `.atomic-api/templates/` 阅读副本；[模板说明](skills/api-dev/references/templates.md)列出替换项和代码对应关系。
+两套实际模板位于 `skills/api-dev/templates/atomic/`、`skills/api-dev/templates/app/`，DTO 共用 `common/`。
+它们由 AtomicTool/Generator 读取并装配，Skill 同时携带 `templates/` 可读文件；[模板说明](skills/api-dev/references/templates.md)列出替换项和代码对应关系。
 生成计划附带明确失败的业务测试待办，不假定项目 JUnit 版本；迁入真实测试目录、补调用和断言后才能验收。
 Atomic 全量生成不支持覆盖历史真实实现，补版本采用[只新增版本的增量路线](skills/api-dev/references/api-atomic.md#4-为已有能力补一个支持版本)。
 [L2EVPN 案例](skills/api-dev/references/l2evpn-example.md)是待私有源码校准的上下文线索，不是权威源码快照；具体待核对文件列在案例末尾。
 
 ## 工具维护与试用
 
-从任意 Git 托管平台克隆或下载的源码不含 JAR。维护工具需要 JDK 17、Maven 和 Python 3；在本仓库根目录执行以下命令，构建后直接运行 tools 内入口，无需安装：
+从任意 Git 托管平台克隆或下载的源码不含 JAR。维护工具需要 JDK 17、Maven 和 Python 3；在本仓库根目录执行以下命令，构建后可直接运行 Skill 的 scripts/ 入口，无需安装：
 
 ```bash
 mvn -f tools/cli/pom.xml clean verify
-sh tools/atomic-api.sh -h
-sh tools/atomic-api.sh demo --repo ../atomic-api-demo
+sh skills/api-dev/scripts/atomic-api.sh -h
+sh skills/api-dev/scripts/atomic-api.sh demo --repo ../atomic-api-demo
 python -m unittest discover -s tools/tests -v
 python tools/package.py
 ```
 
-Python 仅用于维护测试/打包，使用标准库，无 pip 依赖。产物为 `tools/dist/atomic-api-cli.zip`，可通过团队文件共享或所用托管平台的制品服务分发。
+Python 仅用于维护测试/打包，使用标准库，无 pip 依赖。产物为 `tools/dist/api-dev.zip`，可通过团队文件共享或所用托管平台的制品服务分发。
 
-Windows 用 `tools/atomic-api.cmd`。在 Windows PowerShell 中，从本仓库根目录执行以下命令验证便携包（先完成上述构建和打包）：
+Windows 用 `skills/api-dev/scripts/atomic-api.cmd`。在 Windows PowerShell 中，从本仓库根目录执行以下命令验证便携包（先完成上述构建和打包）：
 
 ```powershell
 & ./tools/tests/windows.ps1
