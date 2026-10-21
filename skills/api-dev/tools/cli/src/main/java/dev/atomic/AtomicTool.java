@@ -52,7 +52,7 @@ final class AtomicTool {
             "校验显式继承关系；契约末版本是否最新及历史不支持路径需审查。"),
         rule(
             "A06",
-            "Helper 保持单一 public 业务入口；沿用中文意图注释、英文异常；日志按 N13 遵循项目框架，统一覆盖时不重复添加，不强制固定方法名或新增 try-catch；不泄露凭据。",
+            "Helper 保持单一 public 业务入口；沿用中文意图注释、英文异常；日志按 N13-项目日志 遵循项目框架，统一覆盖时不重复添加，不强制固定方法名或新增 try-catch；不泄露凭据。",
             "conventions",
             "PARTIAL",
             "PRESERVE_EXISTING",
@@ -155,7 +155,7 @@ final class AtomicTool {
               out.println(
                   f.severity()
                       + " "
-                      + f.rule()
+                      + f.ruleLabel()
                       + " "
                       + f.file()
                       + ":"
@@ -168,7 +168,7 @@ final class AtomicTool {
           r ->
               out.println(
                   "RULE "
-                      + r.id()
+                      + r.label()
                       + " "
                       + r.status()
                       + " CHECK "
@@ -400,7 +400,7 @@ final class AtomicTool {
             0,
             message,
             "按 api-dev/references/rules.md 的 "
-                + rule
+                + RuleCatalog.label(rule)
                 + " 修复并重跑 --layer atomic；不能修改规则或删除占位伪装完成。"));
   }
 

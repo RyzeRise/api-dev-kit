@@ -14,7 +14,7 @@
 | 工具辅助 | 解压维护者提供的 `api-dev.zip`，其中含配套 JAR；运行工具只需 Java 17+，无需用户编译或全局安装 | 同一流程中额外执行 init、适配 profile/contract、生成与检查 |
 
 源码目录的 `tools/` 包含维护源码、schema、测试和打包程序；发布包包含 `SKILL.md`、`references/`、`templates/`、`scripts/` 和 `lib/atomic-api.jar`，不带维护源码。源码 checkout 不含预编译 JAR；需要工具辅助时使用发布包或由维护者构建。
-当前工具版本 0.8.1。根目录不提供另一套 Skill 或安装入口。
+当前工具版本 0.8.2。根目录不提供另一套 Skill 或安装入口。
 
 提示示例（安装路径按实际替换，可将“纯文档”改为“工具辅助”）：
 
@@ -31,7 +31,7 @@
 | 开发 | 新方法优先复用已有类；不覆盖已有业务体 | 借用模板片段手工实现 | 支持场景先预览、生成；不支持时仍手工增量 |
 | 测试与交付 | 真实测试、编译、人工证据和未验证项 | 不要求运行工具检查 | 额外报告 check/verify 结果与覆盖限制 |
 
-[适配检查表](skills/api-dev/references/configuration.md#生成前适配检查表)区分真实约定与工具形状；[模板说明](skills/api-dev/references/templates.md)给出手工装配、生成对应关系及测试接入步骤；[规范对照](skills/api-dev/references/rules.md)保留 App N01～N24、Atomic A01～A08 与代码检查的逐条映射。
+[适配检查表](skills/api-dev/references/configuration.md#生成前适配检查表)区分真实约定与工具形状；[模板说明](skills/api-dev/references/templates.md)给出手工装配、生成对应关系及测试接入步骤；[规范对照](skills/api-dev/references/rules.md)保留 App 24 项、Atomic 8 项规范与代码检查的逐条映射。
 工具限制不能变成修改公开接口、JSON、默认值、集合顺序或错误语义的理由。Atomic 补版本保留历史业务体；嵌套版本模型按 [增量清单](skills/api-dev/references/api-atomic.md#本项目嵌套版本接口的增量路线)接线。
 
 check 是辅助扫描，verify 的退出 0/STRUCTURE_READY 只表示自动结构无阻塞，不能替代真实编译、业务测试及人工审查。纯文档按相同规范交付，报告未运行工具，不需要为此补建 profile/YAML。

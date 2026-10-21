@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-JAR = ROOT / 'cli/target/atomic-api-0.8.1.jar'
+JAR = ROOT / 'cli/target/atomic-api-0.8.2.jar'
 SKILL = ROOT.parent
 
 

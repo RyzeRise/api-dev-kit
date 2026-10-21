@@ -44,7 +44,7 @@ public final class Generator {
     for (var field : c.models().request().fields())
       Contract.require(
           !field.diagnostic() || !CodeRules.sensitive(field.name()),
-          "N24: sensitive request field must not be diagnostic: " + field.name());
+          RuleCatalog.label("N24") + ": sensitive request field must not be diagnostic: " + field.name());
     validateExternal();
     model(c.models().request());
     model(c.models().response());

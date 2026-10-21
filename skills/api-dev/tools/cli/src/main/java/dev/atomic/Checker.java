@@ -4,12 +4,18 @@ import com.github.javaparser.ast.*;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.*;
 
 /** AST/type based checks. Unproved relations are INCOMPLETE, never PASS. */
 public final class Checker {
   public record Finding(
       String severity, String rule, String file, int line, String message, String fix) {
+    @JsonProperty("ruleLabel")
+    public String ruleLabel() {
+      return RuleCatalog.label(rule);
+    }
+
     public Finding(String severity, String rule, String file, int line, String message) {
       this(severity, rule, file, line, message, RuleGuidance.fix(rule));
     }
@@ -258,7 +264,7 @@ public final class Checker {
         List.copyOf(findings),
         RuleCatalog.all().stream()
             .filter(r -> !r.coverage().equals("AUTO"))
-            .map(r -> r.id() + " " + r.limitation())
+            .map(r -> r.label() + " " + r.limitation())
             .toList(),
         scaffold ? "SCAFFOLD" : "UNKNOWN",
         RuleCatalog.results(findings, strict, evidence));

@@ -1,5 +1,6 @@
 package dev.atomic;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.*;
 
 /** Every normative row has an executable check route and an explicit proof boundary. */
@@ -12,7 +13,12 @@ public final class RuleCatalog {
       String coverage,
       String generator,
       String limitation,
-      List<String> diagnostics) {}
+      List<String> diagnostics) {
+    @JsonProperty("label")
+    public String label() {
+      return RuleCatalog.label(id);
+    }
+  }
 
   public record Result(
       String id,
@@ -20,7 +26,51 @@ public final class RuleCatalog {
       String checker,
       String generator,
       String limitation,
-      List<String> evidence) {}
+      List<String> evidence) {
+    @JsonProperty("label")
+    public String label() {
+      return RuleCatalog.label(id);
+    }
+  }
+
+  /** Readable display names; raw identifiers remain stable for diagnostic mapping. */
+  static String label(String id) {
+    return switch (id) {
+      case "N01" -> "N01-文件与角色命名";
+      case "N02" -> "N02-接口请求响应";
+      case "N03" -> "N03-转换器职责";
+      case "N04" -> "N04-Facade编排";
+      case "N05" -> "N05-Handler三阶段";
+      case "N06" -> "N06-DTO归属与依赖";
+      case "N07" -> "N07-真实业务实现";
+      case "N08" -> "N08-异常边界";
+      case "N09" -> "N09-响应完整性";
+      case "N10" -> "N10-组件注册";
+      case "N11" -> "N11-Helper单一入口";
+      case "N12" -> "N12-组件与继承";
+      case "N13" -> "N13-项目日志";
+      case "N14" -> "N14-中文意图注释";
+      case "N15" -> "N15-异常文本";
+      case "N16" -> "N16-响应节点DTO";
+      case "N17" -> "N17-JSON兼容";
+      case "N18" -> "N18-MapStruct规范";
+      case "N19" -> "N19-原子命名与版本";
+      case "N20" -> "N20-公开契约兼容";
+      case "N21" -> "N21-Maven接线";
+      case "N22" -> "N22-业务测试";
+      case "N23" -> "N23-安全生成与写入";
+      case "N24" -> "N24-日志隐私与版权";
+      case "A01" -> "A01-原子分层与目录";
+      case "A02" -> "A02-原子接口与DTO";
+      case "A03" -> "A03-版本真实实现";
+      case "A04" -> "A04-版本注册";
+      case "A05" -> "A05-Latest与支持版本";
+      case "A06" -> "A06-原子代码与日志";
+      case "A07" -> "A07-契约兼容与依赖";
+      case "A08" -> "A08-原子版本测试";
+      default -> id;
+    };
+  }
 
   static Rule r(
       String id,
@@ -53,7 +103,7 @@ public final class RuleCatalog {
             "Checker.signature / compare",
             "AUTO",
             "FIXED",
-            "字段业务含义另见 N20。",
+            "字段业务含义另见 N20-公开契约兼容。",
             "API-002",
             "CONTRACT"),
         r(

@@ -331,7 +331,7 @@ class CodeRulesTest {
     var c = Contract.load(f.contract);
     var error =
         assertThrows(IllegalArgumentException.class, () -> new Generator().plan(root, c, f.p));
-    assertTrue(error.getMessage().contains("N24"));
+    assertTrue(error.getMessage().contains("N24-日志隐私与版权"));
   }
 
   @Test

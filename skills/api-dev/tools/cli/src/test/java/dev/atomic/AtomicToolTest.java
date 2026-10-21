@@ -104,6 +104,21 @@ class AtomicToolTest {
   }
 
   @Test
+  void atomicVerifyReportsReadableRuleNamesAndKeepsJsonIds() throws Exception {
+    fixture("interface");
+    generate();
+    var out = new java.io.ByteArrayOutputStream();
+    assertEquals(1, Cli.run(new String[] {"verify", "--layer", "atomic", "--repo", root.toString(),
+        "--contract", contract.toString()}, new java.io.PrintStream(out), System.err));
+    String text = out.toString(java.nio.charset.StandardCharsets.UTF_8);
+    assertTrue(text.contains("RULE A01-原子分层与目录"), text);
+    assertTrue(text.contains("ERROR A03-版本真实实现"), text);
+    var json = Contract.JSON.valueToTree(check());
+    assertEquals("A01", json.path("rules").get(0).path("id").asText());
+    assertEquals("A01-原子分层与目录", json.path("rules").get(0).path("label").asText());
+  }
+
+  @Test
   void interfaceLatestGeneratesOnlyAtomicTypesAndBlocksScaffold() throws Exception {
     fixture("interface");
     generate();
@@ -271,7 +286,7 @@ class AtomicToolTest {
     String doc = Files.readString(Path.of("../../references/rules.md"));
     for (var rule : AtomicTool.rules()) {
       var line =
-          doc.lines().filter(s -> s.startsWith("| " + rule.id() + " |")).findFirst().orElseThrow();
+          doc.lines().filter(s -> s.startsWith("| " + rule.label() + " |")).findFirst().orElseThrow();
       assertTrue(line.contains(rule.requirement()));
       assertTrue(line.contains(rule.checker()));
       assertTrue(line.contains(rule.generator()));

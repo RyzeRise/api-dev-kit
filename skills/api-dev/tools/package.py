@@ -12,7 +12,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=tool_root / 'dist/api-dev.zip')
     args = parser.parse_args()
-    jar = tool_root / 'cli/target/atomic-api-0.8.1.jar'
+    jar = tool_root / 'cli/target/atomic-api-0.8.2.jar'
     if not jar.is_file():
         pom = tool_root / 'cli/pom.xml'
         parser.error(f'Build CLI first: mvn -f "{pom}" package')

@@ -16,7 +16,7 @@ public final class Cli {
           || Arrays.asList(args).contains("-h")
           || args[0].equals("help")) {
         out.println(
-            "atomic-api 0.8.1\n"
+            "atomic-api 0.8.2\n"
                 + "  atomic-api rules [--layer app|atomic] [--format text|json]\n"
                 + "  atomic-api init [--repo <path>]\n"
                 + "  atomic-api new --layer app|atomic --operation <operation> --business <domain>"
@@ -100,7 +100,7 @@ public final class Cli {
                   r ->
                       out.printf(
                           "%s %s%n  CHECK: %s [%s]%n  GENERATOR: %s%n  LIMIT: %s%n",
-                          r.id(),
+                          r.label(),
                           r.requirement(),
                           r.checker(),
                           r.coverage(),
@@ -185,7 +185,7 @@ public final class Cli {
         out.println("DRAFT " + created);
         out.println(
             "只填写 description、models.request.fields、models.response.fields、externalResponse、responseBindings；String"
-                + " 响应另填 errorMode（exception/message）。字段来自真实需求和外部模型。不要修改自动确定的类名/包/目录。再运行 atomic-api"
+                + " 响应另填 errorMode（exception/message）。字段来自真实需求和外部模型。包/目录遵循 roles，类名按角色命名核对，已有类保留原名。再运行 atomic-api"
                 + " generate --contract <本文件> --dry-run。");
         return 0;
       }
@@ -209,7 +209,7 @@ public final class Cli {
                           "schemaVersion",
                           3,
                           "toolVersion",
-                          "0.8.1",
+                          "0.8.2",
                           "layer",
                           "app",
                           "scope",
@@ -238,7 +238,7 @@ public final class Cli {
                       out.printf(
                           "%s %s %s:%d %s%n",
                           f.severity(),
-                          f.rule(),
+                          f.ruleLabel(),
                           f.file(),
                           f.line(),
                           f.message() + "\n  FIX: " + f.fix()));
@@ -251,11 +251,11 @@ public final class Cli {
                   r ->
                       out.printf(
                           "RULE %s %s | CHECK %s | GENERATOR %s%n  LIMIT: %s%n",
-                          r.id(), r.status(), r.checker(), r.generator(), r.limitation()));
+                          r.label(), r.status(), r.checker(), r.generator(), r.limitation()));
           report
               .rules()
               .forEach(
-                  r -> r.evidence().forEach(e -> out.println("  EVIDENCE " + r.id() + ": " + e)));
+                  r -> r.evidence().forEach(e -> out.println("  EVIDENCE " + r.label() + ": " + e)));
           out.printf(
               "Norms: total=%d pass=%d fail=%d review=%d incomplete=%d%n",
               report.rules().size(),

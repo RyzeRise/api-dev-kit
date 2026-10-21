@@ -18,6 +18,21 @@ class CliTest {
   }
 
   @Test
+  void appVerifyTextShowsRuleAndEvidenceNames() throws Exception {
+    var fixture = new StrictWorkflowTest();
+    fixture.root = root;
+    fixture.setup(true);
+    var out = new ByteArrayOutputStream();
+    assertEquals(0, Cli.run(new String[] {"verify", "--repo", root.toString(),
+        "--contract", fixture.contract.toString(), "--profile", root.resolve("framework.yaml").toString()},
+        new PrintStream(out), System.err));
+    String text = out.toString(java.nio.charset.StandardCharsets.UTF_8);
+    assertTrue(text.contains("RULE N01-文件与角色命名"), text);
+    assertTrue(text.contains("EVIDENCE N13-项目日志:"), text);
+    assertTrue(text.contains("RULE N22-业务测试"), text);
+  }
+
+  @Test
   void helpAndUnknownArguments() {
     assertEquals(0, run("--help"));
     assertEquals(0, run("-h"));
