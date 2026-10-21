@@ -381,19 +381,20 @@ final class StrictChecks {
   }
 
   private boolean loggerCall(MethodCallExpr call) {
-    return profile.logging() != null
-        && Set.of("entry", "ret").contains(call.getNameAsString())
-        && call.getScope().isPresent()
-        && call.getScope()
-            .get()
-            .calculateResolvedType()
-            .describe()
-            .equals(profile.logging().type());
+    try {
+      return profile.logging() != null
+              && call.getScope().isPresent()
+              && call.getScope().get().calculateResolvedType().describe()
+                  .equals(profile.logging().type())
+          || call.resolve().declaringType().getName().endsWith("Logger");
+    } catch (RuntimeException e) {
+      // Call-site checks report unresolved calls; classification must not abort the report.
+      return false;
+    }
   }
 
   private boolean logHook(MethodCallExpr call) {
-    return Set.of("entry", "ret").contains(call.getNameAsString())
-        && (loggerCall(call) || call.resolve().declaringType().getName().contains("Logger"));
+    return loggerCall(call);
   }
 
   private Set<MethodCallExpr> facadeBindings(MethodDeclaration method) {

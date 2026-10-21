@@ -46,7 +46,6 @@ public final class Generator {
           !field.diagnostic() || !CodeRules.sensitive(field.name()),
           "N24: sensitive request field must not be diagnostic: " + field.name());
     validateExternal();
-    LoggingSupport.validate(index, profile.logging());
     model(c.models().request());
     model(c.models().response());
     for (var step : c.steps()) handler(step);
@@ -179,7 +178,7 @@ public final class Generator {
       for (var method : List.copyOf(generatedOwner.getMethods())) {
         if (method.getBody().isPresent())
           method.setJavadocComment(LoggingSupport.documentation(method));
-        LoggingSupport.decorate(generatedOwner, method, profile);
+        LoggingSupport.decorate(method);
       }
     shortenGeneratedTypes(
         generated.getTypes().get(0).asClassOrInterfaceDeclaration(), generated.getTypes().get(0));
@@ -208,7 +207,7 @@ public final class Generator {
     if (index.type(owner.getFullyQualifiedName().orElseThrow()) == null
         && method.getBody().isPresent())
       method.setJavadocComment(LoggingSupport.documentation(method));
-    LoggingSupport.decorate(owner, method, profile);
+    LoggingSupport.decorate(method);
     var parameterTypes = method.getParameters().stream().map(p -> p.getType().asString()).toList();
     shortenGeneratedTypes(owner, method);
     var sameName = owner.getMethodsByName(method.getNameAsString());

@@ -52,11 +52,11 @@ final class AtomicTool {
             "校验显式继承关系；契约末版本是否最新及历史不支持路径需审查。"),
         rule(
             "A06",
-            "Helper 保持单一 public 业务入口；沿用中文意图注释、英文异常；日志按 N13 核对真实 API，不支持时记录 A06 未满足及依据，不造包装器或 try-catch；不泄露凭据。",
+            "Helper 保持单一 public 业务入口；沿用中文意图注释、英文异常；日志按 N13 遵循项目框架，统一覆盖时不重复添加，不强制固定方法名或新增 try-catch；不泄露凭据。",
             "conventions",
             "PARTIAL",
-            "WHEN_LOGGING_CONFIGURED",
-            "检查本业务或直接引用的源码 Helper（含继承）、中文存在、明显中文错误/敏感日志及显式出口；外部 Helper、注释含义和隐式路径待审查。"),
+            "PRESERVE_EXISTING",
+            "检查本业务或直接引用的源码 Helper（含继承）、中文存在、明显中文错误及敏感日志；外部 Helper、注释含义、项目日志及统一覆盖范围待审查。"),
         rule(
             "A07",
             "公共契约迁移保留 JSON、公开接口及错误语义，Maven 接线和父版本保持一致。",
@@ -238,7 +238,6 @@ final class AtomicTool {
   static GenerationPlan plan(SourceIndex index, AtomicContract c, AtomicContract.Config p)
       throws Exception {
     Contract.require(index.issues().isEmpty(), "Atomic source parse incomplete: " + index.issues());
-    LoggingSupport.validate(index, p.logging());
     for (String annotation : allAnnotations(c, p))
       index.declaration(StaticJavaParser.parseAnnotation(annotation).getNameAsString());
     for (String base : p.baseInterfaces())
@@ -272,7 +271,7 @@ final class AtomicTool {
           "requiredFields", required.toString(), "apiVersion", v.id());
       var unit = StaticJavaParser.parse(source);
       var type = unit.getClassByName(Contract.simple(v.implementation())).orElseThrow();
-      LoggingSupport.decorate(type, type.getMethodsByName(c.operation()).get(0), p.paths());
+      LoggingSupport.decorate(type.getMethodsByName(c.operation()).get(0));
       output.put(v.implementation(), unit.toString());
     }
     String parent = p.latestKind().equals("interface") ? c.apiInterface()
@@ -727,11 +726,6 @@ final class AtomicTool {
         } catch (RuntimeException e) {
           add(f, "INCOMPLETE", "A06", i.path(helper).toString(), "Helper inheritance unresolved");
         }
-    try {
-      LoggingSupport.validate(i, p.logging());
-    } catch (RuntimeException e) {
-      add(f, "INCOMPLETE", "A06", i.root().toString(), e.getMessage());
-    }
     for (var v : c.releases()) {
       var t = i.type(v.implementation());
       if (t == null) continue;
@@ -754,38 +748,7 @@ final class AtomicTool {
                   .toLowerCase(Locale.ROOT)
                   .matches(".*(password|secret|token|credential|authorization).*"))
                 add(f, "ERROR", "A06", i.path(t).toString(), "Sensitive log argument");
-        if (p.logging() != null && m.getBody().isPresent()) {
-          for (var call : m.findAll(MethodCallExpr.class))
-            if (Set.of("entry", "ret").contains(call.getNameAsString())
-                && call.getScope().map(Object::toString).orElse("").equals("LOGGER"))
-              try {
-                if (!call.getScope()
-                    .orElseThrow()
-                    .calculateResolvedType()
-                    .describe()
-                    .equals(p.logging().type()))
-                  add(
-                      f,
-                      "ERROR",
-                      "A06",
-                      i.path(t).toString(),
-                      "LOGGER receiver differs from configured type");
-              } catch (RuntimeException e) {
-                add(f, "INCOMPLETE", "A06", i.path(t).toString(), "LOGGER receiver unresolved");
-              }
-          var body = m.getBody().get();
-          if (body.isEmpty() || !LoggingSupport.logStatement(body.getStatement(0), "entry"))
-            add(f, "ERROR", "A06", i.path(t).toString(), "entry() missing at method start");
-          for (var exit : m.findAll(com.github.javaparser.ast.stmt.Statement.class))
-            if ((exit.isReturnStmt() || exit.isThrowStmt()) && LoggingSupport.owned(exit, m)) {
-              var parent = exit.getParentNode().orElse(null);
-              if (!(parent instanceof com.github.javaparser.ast.stmt.BlockStmt b)
-                  || b.getStatements().indexOf(exit) < 1
-                  || !LoggingSupport.logStatement(
-                      b.getStatement(b.getStatements().indexOf(exit) - 1), "ret"))
-                add(f, "ERROR", "A06", i.path(t).toString(), "Explicit exit missing ret()");
-            }
-        }
+
       }
     }
   }

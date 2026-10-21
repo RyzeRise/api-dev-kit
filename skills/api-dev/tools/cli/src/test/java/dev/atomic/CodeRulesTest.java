@@ -177,8 +177,7 @@ class CodeRulesTest {
     Fixtures.write(
         root,
         "com/example/log/ProjectLogger",
-        "package com.example.log; public class ProjectLogger {public void entry(){} public void"
-            + " ret(){} public static ProjectLogger getLogger(Class<?> c){return new"
+        "package com.example.log; public class ProjectLogger {public void info(String message){} public static ProjectLogger getLogger(Class<?> c){return new"
             + " ProjectLogger();}}");
     f.p =
         new Profile(
@@ -200,12 +199,13 @@ class CodeRulesTest {
   }
 
   @Test
-  void generatedLogsCoverExplicitExitsWithoutExtraCatchAndCompile() throws Exception {
+  void generationDoesNotAddDuplicateLoggingAndCompiles() throws Exception {
     loggedGeneration();
     var list = findings();
     assertTrue(list.stream().noneMatch(x -> x.rule().equals("N13")), list.toString());
     assertTrue(new Generator().plan(root, f.c, f.p).changes().isEmpty());
     String handler = Files.readString(f.source(f.c.steps().get(0).handler()));
+    assertFalse(handler.contains("LOGGER"), handler);
     assertFalse(handler.contains("catch ("));
     assertFalse(handler.contains("finally"));
     Path output = root.resolve("compiled");
@@ -224,39 +224,30 @@ class CodeRulesTest {
   }
 
   @Test
-  void missingEntryOrBranchExitLogIsRejected() throws Exception {
+  void projectLoggerDoesNotNeedEntryRetOrPerMethodCalls() throws Exception {
     loggedGeneration();
-    String handler = f.c.steps().get(0).handler();
-    String original = Files.readString(f.source(handler));
-    f.edit(handler, s -> s.replaceFirst("LOGGER.entry\\(\\);", ""));
-    error("N13");
-    Files.writeString(f.source(handler), original.replaceFirst("LOGGER.ret\\(\\);", ""));
-    assertTrue(
-        findings().stream()
-            .anyMatch(x -> x.rule().equals("N13") && x.message().startsWith("Explicit")),
-        findings().toString());
+    // A project logger with info(String) is sufficient metadata; shared coverage is reviewed.
+    var report = new Checker(f.p).check(SourceIndex.scan(root), f.c);
+    assertTrue(report.findings().stream().noneMatch(x -> x.rule().equals("N13")), report.toString());
+    var result = report.rules().stream().filter(x -> x.id().equals("N13")).findFirst().orElseThrow();
+    assertEquals("REVIEW_REQUIRED", result.status());
+    assertTrue(result.evidence().stream().anyMatch(x -> x.contains("unified")), result.toString());
   }
 
   @Test
-  void invalidLoggingFactoryStopsGenerationBeforeWrites() throws Exception {
+  void legacyLoggingMetadataDoesNotImposeFactorySignature() throws Exception {
     setup();
     Fixtures.write(
         root,
         "com/example/log/ProjectLogger",
-        "package com.example.log;public class ProjectLogger {public void entry(){}public void"
-            + " ret(){}public static ProjectLogger create(int x){return null;}}");
-    var p =
-        new Profile(
-            f.p.version(),
-            f.p.targetJava(),
-            f.p.types(),
-            f.p.facadeDefault(),
-            f.p.layout(),
-            null,
-            f.p.roles(),
-            new Profile.Logging(
-                "com.example.log.ProjectLogger", "com.example.log.ProjectLogger", "create"));
-    assertThrows(IllegalArgumentException.class, () -> new Generator().plan(root, f.c, p));
+        "package com.example.log;public class ProjectLogger {public void info(String message){}"
+            + "public static ProjectLogger create(int x){return new ProjectLogger();}}");
+    var p = new Profile(f.p.version(), f.p.targetJava(), f.p.types(), f.p.facadeDefault(),
+        f.p.layout(), null, f.p.roles(), new Profile.Logging(
+            "com.example.log.ProjectLogger", "com.example.log.ProjectLogger", "create"));
+    for (String name : Conventions.scope(f.c)) Files.delete(f.source(name));
+    new Generator().plan(root, f.c, p).apply();
+    assertFalse(Files.readString(f.source(f.c.steps().get(0).handler())).contains("LOGGER"));
   }
 
   @Test
@@ -306,17 +297,16 @@ class CodeRulesTest {
   }
 
   @Test
-  void catchAddedOnlyForRetAndRethrowIsRejected() throws Exception {
+  void customizedProjectLogsArePreservedOnRegenerationConflict() throws Exception {
     loggedGeneration();
     String handler = f.c.steps().get(0).handler();
-    f.edit(
-        handler,
-        s ->
-            s.replace(
-                "LOGGER.entry();",
-                "LOGGER.entry(); try { Integer.parseInt(\"1\"); } catch (RuntimeException e)"
-                    + " {LOGGER.ret();throw e;}"));
-    error("N13");
+    f.edit(handler, s -> s.replace("Context ctx = new Context();",
+        "com.example.log.ProjectLogger.getLogger(getClass()).info(\"request\");"
+            + "Context ctx = new Context();"));
+    String before = Files.readString(f.source(handler));
+    assertThrows(IllegalArgumentException.class, () -> new Generator().plan(root, f.c, f.p));
+    assertEquals(before, Files.readString(f.source(handler)));
+    assertTrue(findings().stream().noneMatch(x -> x.rule().equals("N13")));
   }
 
   @Test

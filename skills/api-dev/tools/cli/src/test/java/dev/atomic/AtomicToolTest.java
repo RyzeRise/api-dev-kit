@@ -316,7 +316,7 @@ class AtomicToolTest {
   }
 
   @Test
-  void configuredLoggingCompilesAndMissingExitIsBlocked() throws Exception {
+  void projectLoggingDoesNotRequireEntryRetOrGenerateDuplicateLogs() throws Exception {
     fixture("interface");
     Path profile = root.resolve(".atomic-api/atomic-profile.yaml");
     Files.writeString(
@@ -328,8 +328,7 @@ class AtomicToolTest {
     Path dir = root.resolve("api-atomic-common/src/main/java/com/example/framework");
     Files.writeString(
         dir.resolve("Logger.java"),
-        "package com.example.framework;public class Logger {public void entry(){} public void"
-            + " ret(){}}");
+        "package com.example.framework;public class Logger {public void info(String message){}}");
     Files.writeString(
         dir.resolve("LoggerFactory.java"),
         "package com.example.framework;public class LoggerFactory {public static Logger"
@@ -343,11 +342,8 @@ class AtomicToolTest {
     Path impl = source(load().releases().get(0).implementation());
     String text = Files.readString(impl);
     assertFalse(text.contains("catch ("));
-    assertTrue(text.contains("LOGGER.entry();"));
-    Files.writeString(impl, text.replace("LOGGER.ret();", ""));
-    assertTrue(
-        check().findings().stream()
-            .anyMatch(f -> f.rule().equals("A06") && f.message().contains("ret()")));
+    assertFalse(text.contains("LOGGER"), text);
+    assertTrue(AtomicTool.plan(SourceIndex.scan(root), load(), config).changes().isEmpty());
   }
 
   @Test

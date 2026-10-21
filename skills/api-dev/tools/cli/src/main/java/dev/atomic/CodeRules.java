@@ -103,9 +103,11 @@ final class CodeRules {
   }
 
   void dependencies() {
+    note("N06", "REVIEW_REQUIRED: distinguish public/shared DTOs (including planned cross-module use)"
+        + " from module-internal DTOs; consumer scope and module ownership need project evidence");
     for (var o : owners)
       if (model(o))
-        note("N06", "DTO: " + o.getFullyQualifiedName().orElse("") + " at " + location(o));
+        note("N06", "Public interface DTO: " + o.getFullyQualifiedName().orElse("") + " at " + location(o));
   }
 
   void registration() {
@@ -201,67 +203,14 @@ final class CodeRules {
   }
 
   void logging() {
-    if (p.logging() == null) {
-      note("N13", "NOT_VERIFIED: profile.logging missing; no logger API can be inferred safely");
-      return;
-    }
-    note("N13", "Configured logger: " + p.logging().type());
-    for (var o : owners)
-      for (var m : methods(o)) {
-        var body = m.getBody().orElseThrow();
-        for (var call : m.findAll(MethodCallExpr.class))
-          if (call.getScope().map(Object::toString).orElse("").equals("LOGGER")
-              && Set.of("entry", "ret").contains(call.getNameAsString()))
-            try {
-              if (!call.getScope()
-                  .orElseThrow()
-                  .calculateResolvedType()
-                  .describe()
-                  .equals(p.logging().type()))
-                error("N13", call, "LOGGER call binds to a different type");
-            } catch (RuntimeException e) {
-              finding("INCOMPLETE", "N13", call, "Cannot resolve logger call");
-            }
-        if (body.getStatements().isEmpty()
-            || !LoggingSupport.logStatement(body.getStatement(0), "entry"))
-          error("N13", m, "Method must start with LOGGER.entry()");
-        for (var exit : m.findAll(Statement.class))
-          if ((exit.isReturnStmt() || exit.isThrowStmt()) && LoggingSupport.owned(exit, m)) {
-            var parent = exit.getParentNode().orElse(null);
-            boolean ok =
-                parent instanceof BlockStmt block
-                    && block.getStatements().indexOf(exit) > 0
-                    && LoggingSupport.logStatement(
-                        block.getStatement(block.getStatements().indexOf(exit) - 1), "ret");
-            if (!ok) error("N13", exit, "Explicit return/throw must be preceded by LOGGER.ret()");
-          }
-        if (m.getType().isVoidType()
-            && (body.getStatements().isEmpty()
-                || !LoggingSupport.logStatement(
-                    body.getStatement(body.getStatements().size() - 1), "ret")))
-          error("N13", m, "Void fall-through exit needs LOGGER.ret()");
-        for (var caught : m.findAll(CatchClause.class)) {
-          var statements = caught.getBody().getStatements();
-          boolean onlyLogging =
-              statements.stream()
-                  .allMatch(
-                      s ->
-                          LoggingSupport.logStatement(s, "ret")
-                              || s.isThrowStmt()
-                                  && s.asThrowStmt()
-                                      .getExpression()
-                                      .toString()
-                                      .equals(caught.getParameter().getNameAsString()));
-          if (onlyLogging
-              && statements.stream().anyMatch(s -> LoggingSupport.logStatement(s, "ret")))
-            error(
-                "N13",
-                caught,
-                "Do not add a catch merely to log ret and rethrow the same exception");
-        }
-        // No synthetic catch/finally is introduced; legitimacy of existing catches is a review
-        // boundary.
-      }
+    note("N13", "REVIEW_REQUIRED: follow the existing project logging framework; verify unified"
+        + " logging coverage before adding local logs; do not duplicate covered logging");
+    if (p.logging() != null) note("N13", "Configured logger (metadata only): " + p.logging().type());
+    for (var owner : owners)
+      for (var method : methods(owner))
+        for (var call : method.findAll(MethodCallExpr.class))
+          if (call.getScope().map(Object::toString).orElse("").matches("(?i).*(logger|log)"))
+            note("N13", "Logging candidate (not proof of coverage): " + call.getNameAsString() + " at " + location(call));
   }
 
   static boolean chinese(String text) {

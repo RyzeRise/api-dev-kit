@@ -86,7 +86,7 @@
 | api-atomic-common/.../atomicapi/AtomicApiManagement.java:31–69；AtomicApi.java:23–48；EvplApiOperation.java:17–19 | @AtomicApi(category,oper,superInterface)；管理器按 Class 唯一注册，不做版本排序；EVPL 操作 getEvpl/modifyEvpl 已定义 | 补版本时移交 Latest 注册；不能给所有历史实现补注解造成重复注册 |
 | AtomicApiGetEVPLInterface.java:21–35；AtomicApiGetEVPLR26C10.java:21–28 | 嵌套 Latest extends R26C10 extends R26C00；新实现 extends 旧实现 implements Latest,R26C10 | 当前独立 Latest 类型模板、固定命名和每 release 非空注解都不能如实表达此结构。手工增量，不把 interface 模式误当已经兼容 |
 | AtomicApiModifyEVPLInterface.java:11–19；AtomicApiModifyEVPLR26C10.java:16–25 | 修改接口从 R26C10 开始；String modifyEvplServiceId(ModifyEvplServiceIdReqDto) throws OpsApiException | 不凭空加 R26C00，不强改 String 为通用 RspDto |
-| L2EVPN Facade、ApiHandler、AtomicApiManagement 的日志声明 | 实际 @Slf4j 或 org.slf4j.LoggerFactory.getLogger(Class)，未见 entry/ret 调用 | 已通过实际 slf4j-api 2.0.17 JAR 的 javap 核实 Logger 无 entry/ret、工厂有 getLogger(Class)。该方案不满足自动日志要求；保留实际 API 并标明待适配，不伪造 entry/ret 或改 profile 声称已满足 |
+| L2EVPN Facade、ApiHandler、AtomicApiManagement 的日志声明 | 实际 @Slf4j 或 org.slf4j.LoggerFactory.getLogger(Class)，未见 entry/ret 调用 | 已通过实际 slf4j-api 2.0.17 JAR 的 javap 核实 Logger 无 entry/ret、工厂有 getLogger(Class)。按现行 N13 保留实际框架，不因缺 entry/ret 判违规；统一覆盖及诊断是否充分仍须另查基类/切面/拦截器与运行证据，不重复添加 |
 | service/.../NetChatOpsApiFaultL2EvpnIpranDelegateImpl.java:33–60 | 查询公开返回 List<L2EvpnEvplNode>，失败包装 ServiceException 并 initCause；修改公开返回 String，OpsApiException 转失败字符串 | 查询不能套“构造外部响应对象并 setter”模板；修改保持 message 模式。两者不可被统一异常改写 |
 | service/.../IpranFaultL2evpnResponseConverter.java:26–58 | 查询逐节点映射，拒绝 null 响应/列表/节点；修改拒绝缺失或空白 message | 保留 MapStruct 严格目标策略、内部节点及列表映射。复杂转换走既有 Converter 增量 |
 

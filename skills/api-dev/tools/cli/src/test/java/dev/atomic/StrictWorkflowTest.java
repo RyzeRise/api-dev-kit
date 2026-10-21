@@ -351,6 +351,21 @@ class StrictWorkflowTest {
   }
 
   @Test
+  void moduleInternalDtoCanDependOnItsOwnBusinessImplementation() throws Exception {
+    setup(true);
+    String name = Contract.packageName(c.target().implementation()) + ".InternalWorkDto";
+    Fixtures.write(root, name.replace('.', '/'), "package " + Contract.packageName(name)
+        + "; public class InternalWorkDto { public " + c.target().implementation() + " owner; }");
+    edit(c.steps().get(0).handler(), text -> text.replace("private static class Context",
+        "private " + name + " internalState; private static class Context"));
+    var report = new Checker(p).check(SourceIndex.scan(root), c);
+    assertTrue(report.findings().stream().noneMatch(x -> x.rule().equals("STRICT-006")), report.toString());
+    var rule = report.rules().stream().filter(x -> x.id().equals("N06")).findFirst().orElseThrow();
+    assertEquals("REVIEW_REQUIRED", rule.status());
+    assertTrue(rule.evidence().stream().anyMatch(x -> x.contains("planned")), rule.toString());
+  }
+
+  @Test
   void unrelatedOldScaffoldsAreNotPartOfThisOperation() throws Exception {
     setup(true);
     Fixtures.write(
@@ -580,19 +595,30 @@ class StrictWorkflowTest {
   }
 
   @Test
-  void facadeAllowsResolvedEntryRetLoggingHooks() throws Exception {
+  void unresolvedFacadeCallReportsFindingsInsteadOfAbortingLoggingClassification() throws Exception {
+    setup(true);
+    edit(c.target().implementation(), s -> s.replace("return resultApiHandler.run(request);",
+        "missingCollaborator(); return resultApiHandler.run(request);"));
+    var report = assertDoesNotThrow(() -> check());
+    assertTrue(report.findings().stream().anyMatch(x -> x.rule().equals("STRICT-004")),
+        report.toString());
+    assertTrue(report.findings().stream().anyMatch(x -> x.severity().equals("INCOMPLETE")),
+        report.toString());
+  }
+
+  @Test
+  void facadeAllowsExistingProjectLoggingWithoutFixedMethodNames() throws Exception {
     setup(true);
     Fixtures.write(
         root,
         "com/example/logging/ApiLogger",
-        "package com.example.logging;public class ApiLogger {public static void entry(){} public"
-            + " static <T>T ret(T value){return value;}}");
+        "package com.example.logging;public class ApiLogger {public static void info(String message){} public static <T>T ret(T value){return value;}}");
     edit(
         c.target().implementation(),
         s ->
             s.replace(
                 "return resultApiHandler.run(request);",
-                "com.example.logging.ApiLogger.entry();return"
+                "com.example.logging.ApiLogger.info(\"request\");return"
                     + " com.example.logging.ApiLogger.ret(resultApiHandler.run(request));"));
     var report = check();
     assertEquals(0, report.exitCode(false), report.toString());

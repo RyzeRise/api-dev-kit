@@ -61,7 +61,7 @@ sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer atomic --contract .atomic
 |---|---|
 | 1. 固定基线 | 记录历史文件、公开契约及已有 YAML（若有）；核实新版本的支持证据、接口/DTO、注册及底层差异，不改历史业务体 |
 | 2. 只建新版本 | 参考 implementation 模板替换包/类/接口、操作/DTO、apiVersion 和实际注解；展开 requiredFields 为真实类型的必填校验，文件中不留 `{{...}}` |
-| 3. 补真实逻辑与日志 | 实现本版本调用；模板中没有完整日志，手工沿用真实工厂/字段，先核对 entry/ret 是否存在；支持时成对补齐，不支持时保留实际 API 并列待适配，不强加 try-catch |
+| 3. 补真实逻辑与日志 | 实现本版本调用；沿用项目日志框架，先核对基类/切面/拦截器统一覆盖，已覆盖不重复添加，仅补必要诊断，不强加 try-catch |
 | 4. 接版本与依赖 | 按真实顺序接入新版本；平面 interface Latest 通常不改继承，class Latest 仅在新项确为最新时改 extends；保留自定义成员并核对注册/POM。工具辅助的原契约保留历史 releases，再加入新项 |
 | 5. 测试并核对差异 | 按 [测试接入步骤](templates.md#测试模板怎样使用)覆盖新版本/Latest/历史行为；对照 diff 确认历史业务体及公共契约未被意外修改，实际编译测试；工具辅助另以完整真实契约 verify |
 

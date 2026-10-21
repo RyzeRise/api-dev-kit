@@ -89,11 +89,11 @@ public final class RuleCatalog {
         r(
             "N06",
             "api-dev/references/rules.md",
-            "公共 DTO 不反向依赖 service、Handler 或实现层；App/Atomic 模型分别归属公共模块。",
+            "用于公共接口、跨模块共享或已明确后续跨模块使用的 DTO 放公共模块，且不反向依赖实现；仅模块内部使用的 DTO 可放业务模块。",
             "StrictChecks.check / CodeRules.dependencies",
             "PARTIAL",
             "FIXED",
-            "外部依赖 JAR 和所有历史消费者需审查。",
+            "只自动检查契约中的公共 DTO 依赖；内部 DTO、全部消费者、后续共享计划及实际模块归属需审查。",
             "STRICT-006",
             "N06"),
         r(
@@ -158,12 +158,11 @@ public final class RuleCatalog {
         r(
             "N13",
             "api-dev/references/rules.md",
-            "先核对真实日志 API；支持时业务方法入口 entry、每个显式 return/throw 前 ret，不为 ret 强加 try-catch；不支持时保留原 API，记录"
-                + " N13 未满足及源码依据，不造包装器。",
-            "CodeRules.logging / LoggingSupport.validate",
-            "PARTIAL",
-            "WHEN_LOGGING_CONFIGURED",
-            "须配置真实 logging API；缺配置报告 NOT_VERIFIED，不证明隐式异常路径；API 不支持时列出日志类型/签名、受影响方法及待适配项，不计规范通过。",
+            "遵循项目现有日志框架，不强制 entry/ret 等方法名；统一日志已覆盖时不重复添加，缺失的诊断信息按项目约定补充。",
+            "CodeRules.logging",
+            "REVIEW",
+            "PRESERVE_EXISTING",
+            "仅定位日志及配置证据；统一日志覆盖、诊断充分性和重复记录须结合基类、切面、拦截器及运行证据审查。",
             "N13"),
         r(
             "N14",

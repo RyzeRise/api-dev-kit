@@ -14,7 +14,7 @@
 | 工具辅助 | 解压维护者提供的 `api-dev.zip`，其中含配套 JAR；运行工具只需 Java 17+，无需用户编译或全局安装 | 同一流程中额外执行 init、适配 profile/contract、生成与检查 |
 
 源码目录的 `tools/` 包含维护源码、schema、测试和打包程序；发布包包含 `SKILL.md`、`references/`、`templates/`、`scripts/` 和 `lib/atomic-api.jar`，不带维护源码。源码 checkout 不含预编译 JAR；需要工具辅助时使用发布包或由维护者构建。
-当前工具版本 0.8.0。根目录不提供另一套 Skill 或安装入口。
+当前工具版本 0.8.1。根目录不提供另一套 Skill 或安装入口。
 
 提示示例（安装路径按实际替换，可将“纯文档”改为“工具辅助”）：
 
