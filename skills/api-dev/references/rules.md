@@ -13,7 +13,7 @@ sh "$SKILL_DIR/scripts/atomic-api.sh" rules --layer atomic --format json
 
 | 编号 | 代码规范 | 检查入口与覆盖范围 | 生成器支持 |
 |---|---|---|---|
-| N01 | 类名、包与源码目录服从项目 roles，不猜目录或把公共契约放入 SDK。 | `StrictChecks.check / Conventions.validate`；自动（限定范围）。未覆盖：以本操作 contract/profile 为范围。 | 生成器固定（`FIXED`） |
+| N01 | Java 文件名与顶层公开类或接口名一致；新增 Facade/Converter 按业务域、Handler/请求响应 DTO 按操作命名，请求响应 DTO 主体一致；已有类增量保留原名，包和目录服从项目 roles，不把公共契约放入 SDK。 | `StrictChecks.check / Conventions.validate`；部分自动，仍需审查。未覆盖：自动核对本操作契约目标的路径/文件名；业务域前缀、动作/对象、DTO 同名主体及存量命名保留须对照需求与基线人工审查。 | 按契约类名生成（`CONTRACT_DRIVEN`） |
 | N02 | Facade 使用单个业务 ReqDto/RspDto，字段名称和类型符合契约。 | `Checker.signature / compare`；自动（限定范围）。未覆盖：字段业务含义另见 N20。 | 生成器固定（`FIXED`） |
 | N03 | 请求和响应 Converter 分开；Delegate 实际使用两者，不直接组装 REST 响应。 | `StrictChecks.delegate / converter`；自动（限定范围）。未覆盖：检查指定转换器及可追踪辅助方法。 | 生成器固定（`FIXED`） |
 | N04 | Facade 只编排 Handler；单步直接返回，Builder 只用于真实汇总。 | `StrictChecks.facade / Checker.checkHandlerCalls`；部分自动，仍需审查。未覆盖：汇总是否有业务意义需审查。 | 只生成骨架（`SCAFFOLD`） |

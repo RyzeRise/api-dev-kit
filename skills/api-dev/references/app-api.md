@@ -36,7 +36,7 @@
 
 ### 确需新骨架
 
-先写清真实请求/响应字段、完整 Java 类型、中文含义、必填/诊断规则、外部响应及转换关系；保持历史默认值、JSON 和异常语义。L2EVPN 已确认 neId/evplId 为 java.lang.Long，其他业务仍从源码取类型。
+先按 [文件名与角色命名](templates.md#文件名与角色命名)确定新增类名，复用已有类时保留原名。写清真实请求/响应字段、完整 Java 类型、中文含义、必填/诊断规则、外部响应及转换关系；保持历史默认值、JSON 和异常语义。L2EVPN 已确认 neId/evplId 为 java.lang.Long，其他业务仍从源码取类型。
 
 - **纯文档**：参考 `app/` 和 `common/` 模板，在真实角色位置编写所需 DTO、Facade、Handler、Converter、Delegate；只在真实多来源汇总时加 Builder。按 [手工使用模板](templates.md#手工使用模板)补成员、导入、接线及日志，再接第 3 节。
 - **工具辅助**：仅在真实结构符合模板时运行以下命令，operation/business 替换为本次真实值；已有该操作不运行 new。以下命令在 Linux/macOS 执行：

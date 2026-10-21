@@ -185,6 +185,21 @@ class StrictWorkflowTest {
   }
 
   @Test
+  void javaFilenameMustMatchPublicTopLevelClassOrInterface() throws Exception {
+    setup(true);
+    for (String name : List.of(c.target().facade(), c.steps().get(0).handler())) {
+      Path original = source(name);
+      Path renamed = original.resolveSibling("WrongFilename.java");
+      Files.move(original, renamed);
+      var report = check();
+      assertTrue(report.findings().stream().anyMatch(x -> x.rule().equals("STRICT-001")
+          && x.message().contains("WrongFilename.java")), report.toString());
+      Files.move(renamed, original);
+    }
+    assertFalse(check().findings().stream().anyMatch(x -> x.rule().equals("STRICT-001")));
+  }
+
+  @Test
   void missingRolesNeverGuessesProjectArchitecture() throws Exception {
     Fixtures.framework(root);
     Profile old = Profile.load(Fixtures.profile(root));

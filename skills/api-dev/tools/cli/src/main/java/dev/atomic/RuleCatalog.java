@@ -39,11 +39,11 @@ public final class RuleCatalog {
         r(
             "N01",
             "api-dev/references/rules.md",
-            "类名、包与源码目录服从项目 roles，不猜目录或把公共契约放入 SDK。",
+            "Java 文件名与顶层公开类或接口名一致；新增 Facade/Converter 按业务域、Handler/请求响应 DTO 按操作命名，请求响应 DTO 主体一致；已有类增量保留原名，包和目录服从项目 roles，不把公共契约放入 SDK。",
             "StrictChecks.check / Conventions.validate",
-            "AUTO",
-            "FIXED",
-            "以本操作 contract/profile 为范围。",
+            "PARTIAL",
+            "CONTRACT_DRIVEN",
+            "自动核对本操作契约目标的路径/文件名；业务域前缀、动作/对象、DTO 同名主体及存量命名保留须对照需求与基线人工审查。",
             "STRICT-001",
             "CONTRACT"),
         r(

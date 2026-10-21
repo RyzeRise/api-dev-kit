@@ -19,7 +19,7 @@ final class Conventions {
     Contract.require(
         profile != null && profile.roles() != null,
         "STRICT-001: 配置 .atomic-api/profile.yaml 的 roles 后再运行；由项目维护者确定各层包和模块，不要猜目录。参考"
-            + " README.md 的项目配置部分");
+            + " api-dev/references/configuration.md");
   }
 
   static String name(Profile p, String role, String business, String simple) {

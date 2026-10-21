@@ -83,7 +83,7 @@ final class NewContract {
     Contract.require(!Files.exists(path), "CONFLICT: contract already exists: " + path);
     String text =
         "# 业务草稿：先填写 description、models.*.fields、externalResponse 和 responseBindings。String 还需 errorMode。\n"
-            + "# 类名/包/目录已按项目 roles 固定；不要为了绕过检查修改 roles 或降低 version。\n"
+            + "# 包/目录按项目 roles 生成；新增类按角色命名核对，Handler 补业务域前缀，DTO 请求/响应主体一致；复用已有类保留原名。\n"
             + new Yaml().dump(data);
     new GenerationPlan(root, List.of(new GenerationPlan.Change(path, null, text)), Map.of())
         .apply();

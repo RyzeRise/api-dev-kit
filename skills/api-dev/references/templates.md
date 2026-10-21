@@ -6,6 +6,24 @@
 - **纯文档**：直接阅读并改写所需片段，无需 JAR 或生成器；按下方手工步骤装配。
 - **工具辅助**：生成器读取 JAR 里的同一套模板，不动态读取目录中的文件；修改生成行为须重新构建 JAR 和打包。升级与定制见 [配置手册](configuration.md#升级与定制)。
 
+## 文件名与角色命名
+
+Java 文件名必须与其顶层公开类或接口名一致（含大小写）。以下规则用于新增类；已有类增量修改保留原命名，不为套模板批量重命名。
+
+| 角色 | 命名规则 | 文件名示例 |
+|---|---|---|
+| Facade、请求/响应 Converter | 按业务域命名，同一业务域复用已有类，不为每个操作另建一套 | `<业务域>Facade.java`、`<业务域>RequestConverter.java`、`<业务域>ResponseConverter.java` |
+| Handler | `<业务域前缀><操作>ApiHandler` | `IpranFaultSnapshotSaveApiHandler.java` |
+| 请求 DTO | `<动作><业务对象>ReqDto` | `SaveFaultSnapshotReqDto.java` |
+| 响应 DTO | `<动作><业务对象>RspDto` | `SaveFaultSnapshotRspDto.java` |
+
+同一操作的请求/响应 DTO 使用相同名称主体，如 `SaveFaultSnapshot`。业务域前缀、动作和对象从真实需求及相邻代码确认，不把示例 Ipran/FaultSnapshot 当通用前缀，也不要求 Handler 的操作段与 DTO 主体机械拼接为同一字符串。
+
+- **纯文档**：按此表命名所需新文件，文件内声明与文件名一致；复用类只新增成员。
+- **工具辅助**：new 的类名是草稿，先核对 target、models.*.class、steps[].handler；Facade/Converter 默认按 business 命名，DTO 默认取 operation 主体，Handler 默认 `<Operation>ApiHandler`，须按真实业务域前缀调整后再预览生成。生成器按契约完整类名落盘，不自动猜测或拆解业务域/动作/对象。
+
+工具会核对契约目标的路径/文件名，但不能自动证明角色语义命名或哪些类属于存量；按需求和修改前基线人工核对，不用新命名规则拒绝既有类的正常增量修改。
+
 ## Atomic
 
 | 结构 | 实际模板 | 谁读取与装配 |

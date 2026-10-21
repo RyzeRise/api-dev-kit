@@ -48,6 +48,7 @@ Windows 设置 `$skillDir = 'C:/实际安装位置/api-dev'`，使用 `& "$skill
 ## 3. 按所选手册开发（两种方式共同遵守）
 
 - 公共接口与实现分层；用于公共接口、跨模块共享或已明确后续会跨模块使用的 DTO 提前放公共模块，不反向依赖 service/Handler/实现。仅模块内部使用的 DTO 可放业务模块。类名、包和源码根遵循真实项目约定（工具辅助将其记录为 roles）。
+- Java 文件名与顶层公开类或接口名一致。新增 Facade/Converter 按业务域命名，Handler/请求响应 DTO 按具体操作命名，请求与响应 DTO 主体一致；已有类增量保留原命名，详见 [命名规则](references/templates.md#文件名与角色命名)。
 - App Facade 只编排 Handler；pre 校验并构建请求，invoke 获取能力并调用，post 校验转换响应；请求状态放 Context。请求/响应 Converter 分开且只做映射，Delegate 连接转换和调用，并保持同一异常边界。Builder 仅用于真实汇总。
 - 每个具体 Helper 只有一个 public 业务入口（含继承，排除 Object 方法与构造器），辅助方法私有。已有继承保持框架约定；新增具体 Handler/Helper 可按项目约定用单类 Component。
 - 中文注释说明业务意图、判断优先级，缩写展开。遵循项目现有日志框架与约定，不强制 entry()/ret() 等方法名。先核对基类、切面或拦截器的统一日志覆盖，已覆盖时不重复添加；仅补充缺失的业务诊断信息，不发明日志包装器或为日志强加 try-catch，不记录凭据，保留实际版权头。

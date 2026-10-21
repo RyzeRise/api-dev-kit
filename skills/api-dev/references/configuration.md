@@ -73,7 +73,7 @@ L2EVPN 的 Handler 双泛型、protected BasicApiContext 生命周期及组件�
 
 request/response roles 表示公共接口 DTO，不涵盖所有 DTO。仅模块内部使用的 DTO 可留业务模块；已明确后续跨模块使用的提前放公共模块，核对消费者与使用计划，不因后缀相同就全部搬迁。
 
-每个 role 都写真实包前缀与模块源码根目录；layout 配置相应 packagePrefix/sourceRoot。磁盘目录前缀与 package 不一致时用 directoryPrefix，不批量搬迁历史源码。roles 配置归属；new 采用默认类名，但 App 契约 target 可以指向真实已有 Facade/实现/Delegate/Converter，并非强制它们采用默认简单类名。Conventions.location 仍要求各角色 package 等于该角色 packagePrefix + business、sourceRoot 匹配；两个 Converter 还必须同包，DTO 后缀遵守 ReqDto/RspDto。现有包结构不符合这些条件，或存在复杂内部节点/回填时，不能仅改 roles 假装适配。
+每个 role 都写真实包前缀与模块源码根目录；layout 配置相应 packagePrefix/sourceRoot。磁盘目录前缀与 package 不一致时用 directoryPrefix，不批量搬迁历史源码。roles 配置归属；new 提供默认类名草稿，生成前按 [命名规则](templates.md#文件名与角色命名)核对新增类，尤其补齐 Handler 的业务域前缀；App 契约 target 可指向真实已有 Facade/实现/Delegate/Converter，增量修改保留原名。Conventions.location 仍要求各角色 package 等于该角色 packagePrefix + business、sourceRoot 匹配；两个 Converter 还必须同包，DTO 后缀遵守 ReqDto/RspDto。现有包结构不符合这些条件，或存在复杂内部节点/回填时，不能仅改 roles 假装适配。
 
 例如 request 的 sourceRoot 从当前公共 DTO 所在模块截到 src/main/java，packagePrefix 从其 package 声明归纳；不要从文件系统目录猜 package。targetJava 与业务编译版本一致。facadeDefault 按既有默认实现选 throw 或 return-null；已有禁用注册还需核对 disabledFacade.configuration/mapField。
 
