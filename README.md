@@ -8,8 +8,7 @@
 
 | 位置 | 存在理由 |
 |---|---|
-| `skills/api-dev/` | 自包含 Skill：入口、两层手册、运行脚本和模板；发布包另包含配套 JAR。 |
-| `tools/` | 维护者使用的 Java 实现、schema、测试和打包程序。 |
+| `skills/api-dev/` | 完整 Skill：入口、两层手册、脚本、模板，以及 tools/ 下的维护源码、schema、测试和打包程序；发布包包含配套 JAR。 |
 
 根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.8.0。
 
@@ -121,19 +120,19 @@ Atomic 全量生成不支持覆盖历史真实实现，补版本采用[只新增
 从任意 Git 托管平台克隆或下载的源码不含 JAR。维护工具需要 JDK 17、Maven 和 Python 3；在本仓库根目录执行以下命令，构建后可直接运行 Skill 的 scripts/ 入口，无需安装：
 
 ```bash
-mvn -f tools/cli/pom.xml clean verify
+mvn -f skills/api-dev/tools/cli/pom.xml clean verify
 sh skills/api-dev/scripts/atomic-api.sh -h
 sh skills/api-dev/scripts/atomic-api.sh demo --repo ../atomic-api-demo
-python -m unittest discover -s tools/tests -v
-python tools/package.py
+python -m unittest discover -s skills/api-dev/tools/tests -v
+python skills/api-dev/tools/package.py
 ```
 
-Python 仅用于维护测试/打包，使用标准库，无 pip 依赖。产物为 `tools/dist/api-dev.zip`，可通过团队文件共享或所用托管平台的制品服务分发。
+Python 仅用于维护测试/打包，使用标准库，无 pip 依赖。产物为 `skills/api-dev/tools/dist/api-dev.zip`，可通过团队文件共享或所用托管平台的制品服务分发。
 
 Windows 用 `skills/api-dev/scripts/atomic-api.cmd`。在 Windows PowerShell 中，从本仓库根目录执行以下命令验证便携包（先完成上述构建和打包）：
 
 ```powershell
-& ./tools/tests/windows.ps1
+& ./skills/api-dev/tools/tests/windows.ps1
 ```
 
 自动构建系统可执行相同的构建、测试和打包命令；Windows 检查需在 Windows 执行环境中运行。demo 使用虚构框架，不连接真实系统；包中的模板和旧契约用于生成及回归测试，不是另外一套开发规范。

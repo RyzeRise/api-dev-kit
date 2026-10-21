@@ -8,13 +8,14 @@ from pathlib import Path
 def main() -> None:
     """Package the Skill's instructions, launchers, templates and compiled CLI."""
     tool_root = Path(__file__).resolve().parent
-    skill_root = tool_root.parent / 'skills/api-dev'
+    skill_root = tool_root.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=tool_root / 'dist/api-dev.zip')
     args = parser.parse_args()
     jar = tool_root / 'cli/target/atomic-api-0.8.0.jar'
     if not jar.is_file():
-        parser.error('Build CLI first: mvn -f tools/cli/pom.xml package')
+        pom = tool_root / 'cli/pom.xml'
+        parser.error(f'Build CLI first: mvn -f "{pom}" package')
     assets = [skill_root / 'SKILL.md']
     for directory in ['references', 'scripts', 'templates']:
         assets.extend(sorted(p for p in (skill_root / directory).rglob('*')

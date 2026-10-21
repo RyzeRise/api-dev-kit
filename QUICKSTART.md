@@ -49,10 +49,10 @@ TestPlan 需按 [测试接入步骤](skills/api-dev/references/templates.md#测�
 在本工具源码仓库根目录运行，需要 JDK 17+、Maven 和 Python 3：
 
 ```text
-mvn -f tools/cli/pom.xml clean verify
-python -m unittest discover -s tools/tests -v
-python tools/package.py
+mvn -f skills/api-dev/tools/cli/pom.xml clean verify
+python -m unittest discover -s skills/api-dev/tools/tests -v
+python skills/api-dev/tools/package.py
 ```
 
-产物 `tools/dist/api-dev.zip`，包含完整 Skill。源码 checkout 不含预编译 JAR，普通用户使用发布包；修改模板/Java 后重建，修改文档后重新打包。
-Windows 便携检查在构建打包后运行 `& ./tools/tests/windows.ps1`，真实业务仍需本项目之外的私有源码和依赖验证。
+产物 `skills/api-dev/tools/dist/api-dev.zip`，包含完整 Skill。源码 checkout 不含预编译 JAR，普通用户使用发布包；修改模板/Java 后重建，修改文档后重新打包。
+Windows 便携检查在构建打包后运行 `& ./skills/api-dev/tools/tests/windows.ps1`，真实业务仍需本项目之外的私有源码和依赖验证。

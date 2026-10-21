@@ -268,7 +268,7 @@ class AtomicToolTest {
 
   @Test
   void atomicCatalogIsDocumentedAndHasRealCheckRoutes() throws Exception {
-    String doc = Files.readString(Path.of("../../skills/api-dev/references/rules.md"));
+    String doc = Files.readString(Path.of("../../references/rules.md"));
     for (var rule : AtomicTool.rules()) {
       var line =
           doc.lines().filter(s -> s.startsWith("| " + rule.id() + " |")).findFirst().orElseThrow();
