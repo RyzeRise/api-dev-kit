@@ -1,12 +1,14 @@
 # 首次接入与配置核对
 
 仅在首次接入或框架变化时阅读；日常按 [App](app-api.md) / [Atomic](api-atomic.md) 操作。
-使用入口中确定的 SKILL_DIR，在业务仓库根执行 `sh "$SKILL_DIR/scripts/atomic-api.sh" init`；Windows 使用对应命令。
-两份 profile 独立，init 保留既有文件；配置必须由真实源码与依赖签名核对。
+两种方式先按下表核对真实源码与依赖签名。
+
+- **纯文档**：记录文件/签名与结论即可，不运行 init，不创建 profile 或 YAML；不满足生成器形状时按实际框架手工实现。
+- **工具辅助**：使用入口中的 SKILL_DIR，在业务仓库根执行 `sh "$SKILL_DIR/scripts/atomic-api.sh" init`；Windows 使用对应命令。两份 profile 独立，init 保留既有文件；本页后半的 profile 和日志配置仅用于工具。
 
 ## 生成前适配检查表
 
-从相邻已运行的代码记录“文件/方法签名 → 核对结果”；只填类名不算适配。
+从相邻已运行的代码记录“文件/方法签名 → 核对结果”；只填类名不算适配。下表区分真实职责与生成器形状：纯文档据此选择可借用片段，工具辅助据此决定能否生成，不把工具支持范围当作业务强制结构。
 
 | 核对项 | App 模板要求 | Atomic 模板要求 |
 |---|---|---|
@@ -17,9 +19,9 @@
 | 依赖与日志 | 两层都须解析真实源码/JAR；日志工厂与 entry/ret 签名见下节。自动日志不支持时明确列出手工补齐项 | 同左，且公共模块不得依赖版本实现 |
 
 信息缺失就列出具体文件/签名；确定不兼容则保留真实框架，走手工增量或交维护者适配工具。
-全部已确认才生成；日志若须手工补齐，交付前单独核对。dry-run 成功不是完整签名兼容证明，最终仍须真实编译。
+工具辅助全部已确认才生成；日志若须手工补齐，交付前单独核对。dry-run 成功不是完整签名兼容证明，两种方式最终都须真实编译。
 
-## 自动预检实际证明到哪里
+## 自动预检实际证明到哪里（工具辅助）
 
 以下依据本工具源码，不是对私有 L2EVPN 签名的确认：
 
@@ -44,7 +46,7 @@ L2EVPN 的 Handler 双泛型、protected BasicApiContext 生命周期及组件�
 
 具体源码、字段和验收范围见 [真实源码校准](l2evpn-example.md#真实源码校准2026-10-19)。
 
-## App profile
+## App profile（仅工具辅助）
 
 本节只在首次接入或框架变化时使用。读取 `.atomic-api/profile.yaml` 的现有完整结构并修改真实值；没有配置时先运行 init。不要手工只建下面几行导致缺字段。
 
@@ -76,7 +78,7 @@ L2EVPN 的 Handler 双泛型、protected BasicApiContext 生命周期及组件�
 未知类型通过真实源码或 --classpath 的实际 JAR 解析，不改 profile 以掩盖源码违规。
 
 
-## Atomic profile
+## Atomic profile（仅工具辅助）
 
 读取真实相邻 Atomic 能力的公共接口、版本实现、Latest、版本注解、管理器和底层 REST 封装。维护者核对独立的 `.atomic-api/atomic-profile.yaml`：
 
@@ -91,7 +93,7 @@ init 仅提供 com.example 草稿，不能代表真实项目注册方式。注�
 类型含泛型逗号时按 YAML 字符串加引号，例如 `type: 'java.util.Map<java.lang.String,java.lang.String>'`。
 
 
-## 日志配置
+## 日志配置（仅工具辅助）
 
 各自 profile 的 logging 包含 type（实际日志类）、factoryType（实际工厂）、factoryMethod（静态工厂方法）。
 当前支持静态工厂接收 Class、返回日志类，以及无参 entry()/ret()。LoggingSupport 校验签名后，在模板渲染结果中添加日志字段、入口与每个显式出口调用，不额外制造 try-catch。
@@ -102,4 +104,4 @@ init 仅提供 com.example 草稿，不能代表真实项目注册方式。注�
 升级以完整 `api-dev/` 目录为单位：先解压到新位置，比较合并旧 Skill 的脚本、references 和模板定制，再更新 Agent 引用路径。
 init 只准备 `.atomic-api/` 的业务配置/契约/schema/工作目录，保留既有文件，不复制或升级 Skill，也不创建 Agent 专属目录。
 旧 `.atomic-api/skills/`、`.atomic-api/tool/`、`.atomic-api/templates/` 会保留并提示迁移；确认定制已合并、业务配置未变后再手动移除旧安装，避免 Agent 继续读取旧入口。
-生成器读 JAR 内模板；修改 Skill 中可读模板后须重建 JAR 并重打包，不能只改文件就认为生成行为已更新。
+纯文档修改可读模板不需要构建 JAR；工具辅助的生成器读 JAR 内模板，改变生成行为须重建 JAR 并重打包，不能只改可读文件。

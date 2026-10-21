@@ -9,9 +9,9 @@
 
 > 请读取已安装 api-dev 的 `SKILL.md` 与 L2EVPN 案例，开发“查询 EVPL 节点”和“修改 EVPL Service ID”的 App 接入。先核对当前分支已有方法和真实底层能力；已存在就增量修改。列出拟改文件，按 App 手册选择模板、实现和检查，报告实际编译/测试及未验证项。
 
-仅开发一项时删去另一项。若两项在当前分支已完成，报告核对结果，不为演示修改代码。
+提示可指定“纯文档”或“工具辅助”，未指定默认纯文档。仅开发一项时删去另一项。若两项在当前分支已完成，报告核对结果，不为演示修改代码。
 
-## 2. 定位入口与复用能力
+## 2. 定位入口与复用能力（两种方式相同）
 
 | 搜索线索 | 核对内容 |
 |---|---|
@@ -25,7 +25,7 @@
 
 名称变动时沿 import、引用与调用找到真实类型。App 能复用底层就只改 App，缺能力才进入 Atomic 路线。
 
-## 3. 核实查询与修改契约
+## 3. 核实查询与修改契约（两种方式相同）
 
 查询模型：QueryL2evpnEvplNodesReqDto/RspDto。请求 neId、evplId 均为 Long 且都必填；当前 Handler 只检查 null，不新增正数/范围约束。
 响应 evplNodes 的节点线索为 QueryL2evpnEvplNodesRspDto.L2evpnEvplNodeDto（public static）。核对以下八个字段：
@@ -53,8 +53,8 @@
 
 公共业务 DTO 归属 ipran-app-api-common；实现属于实际 ipran-app-api-*，REST 适配在 service，最终以真实模块为准。
 
-现有 OpsIpran... 命名、专属内部节点、请求字段回填可能与通用模板不符。此时按 App“模板不适用”分支增量修改，不执行整套 generate。
-新操作只有经真实 profile/契约适配后才执行 App 手册的 new → 预览 → generate；operation/business 替换为本次操作。
+- **纯文档**：按上表职责与真实源码增量修改，借用模板片段，展开字段/校验并补实际接线；无需 profile/YAML。
+- **工具辅助**：本例命名、专属内部节点、List 返回及请求回填不适配整套生成，按 App“模板不适用”分支手工增量。其他真实适配的新操作才执行 new → 预览 → generate。
 当前源码把 getServiceByEvpl 定义在 R26C10，并由 Latest extends R26C10；R26C00 只有原有查询方法。修改接口只有 R26C10 与 Latest，没有 R26C00。以上证明当前声明位置，不等于完整历史或部署支持范围；补版本按 Atomic 的嵌套版本增量路线保留历史实现。
 
 ## 5. 验收本例
@@ -64,7 +64,10 @@
 - 分别让请求转换、Facade 和响应转换失败，断言原错误、getErrMsg/cause 和既有 String 错误形式。
 - 核对实际 Facade/Atomic 注册、Latest、模块依赖、处理器和 parent.version；用真实 JDK/项目测试证明。
 
-结构已适配：按本层真实契约 verify。未适配：App 辅助 check，Atomic 需真实契约才可 check/verify；两种情况都按 Skill 的完成条件报告状态。
+两种方式按 [测试接入步骤](templates.md#测试模板怎样使用)执行上列验收并核对本轮报告。
+
+- **纯文档**：按规范人工审查并报告“纯文档；未运行工具检查”，不要求 YAML。
+- **工具辅助**：结构适配时按本层真实契约 verify；未适配时 App 可辅助 check，Atomic 需真实契约才可 check/verify；报告未完成的工具验收和已执行的业务验证。
 
 ## 真实源码校准（2026-10-19）
 

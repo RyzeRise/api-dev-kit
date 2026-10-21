@@ -1,123 +1,49 @@
 # API Dev Kit
 
-让 Code Agent 按项目规范生成、检查 Java API。只需向 Agent 描述任务并指定 skill 文件；命名、目录和部分分层约束由工具执行。
+让 Code Agent 按项目规范开发、审查 Java API。支持**纯文档**和**工具辅助**：共用一份 Skill、规范和模板，每个步骤说明执行差异，未指定时默认纯文档。
 
-首次使用请先读 [QUICKSTART.md](QUICKSTART.md)：以 L2EVPN 查询 EVPL 节点、修改 EVPL Service ID 为例，说明接入、任务提示、生成边界和验收。
+首次使用见 [QUICKSTART.md](QUICKSTART.md)。[L2EVPN 案例](skills/api-dev/references/l2evpn-example.md)保留查询 EVPL 节点、修改 EVPL Service ID 的完整校准流程，不代替当前业务源码。
 
-## 仓库结构
+## 安装与选择方式
 
-| 位置 | 存在理由 |
-|---|---|
-| `skills/api-dev/` | 完整 Skill：入口、两层手册、脚本、模板，以及 tools/ 下的维护源码、schema、测试和打包程序；发布包包含配套 JAR。 |
+将完整 `api-dev/` 放入所用 Agent 的 Skill 目录，例如业务仓 `.skills/api-dev/`，也可放在仓库外。位置不限，不要只复制 SKILL.md。
 
-根目录不提供安装脚本、重复入口、历史计划或另一套设计说明。当前版本 0.8.0。
+| 方式 | 获取与依赖 | 开始方式 |
+|---|---|---|
+| 纯文档（默认） | 从源码仓复制 `skills/api-dev/` 即可；不需要工具 JAR/Java 17，业务编译仍用项目自己的环境 | 让 Agent 读 SKILL.md，按手册和可读模板开发、人工审查、编译测试 |
+| 工具辅助 | 解压维护者提供的 `api-dev.zip`，其中含配套 JAR；运行工具只需 Java 17+，无需用户编译或全局安装 | 同一流程中额外执行 init、适配 profile/contract、生成与检查 |
 
-## 安装 Skill
+源码目录的 `tools/` 包含维护源码、schema、测试和打包程序；发布包包含 `SKILL.md`、`references/`、`templates/`、`scripts/` 和 `lib/atomic-api.jar`，不带维护源码。源码 checkout 不含预编译 JAR；需要工具辅助时使用发布包或由维护者构建。
+当前工具版本 0.8.0。根目录不提供另一套 Skill 或安装入口。
 
-获取维护者提供的 `api-dev.zip`，将包内完整 `api-dev/` 放到所用 Agent 的 Skill 目录，例如 `.skills/api-dev/`；也可放在仓库外任意位置。不要拆开目录，脚本、JAR、手册和模板都随 Skill 分发。
+提示示例（安装路径按实际替换，可将“纯文档”改为“工具辅助”）：
 
-```text
-api-dev/
-  SKILL.md
-  references/
-  scripts/                 # 各平台入口
-  lib/atomic-api.jar
-  templates/               # 可读、可复用模板
-```
+> 请读取 `.skills/api-dev/SKILL.md`，用纯文档方式开发 L2EVPN 的 EVPL 节点查询接入。先读已有实现并复用真实底层能力；方法已存在就增量修改。报告规范审查、实际编译测试及未验证项。
 
-在**业务仓库根目录**运行，以下变量替换为实际 Skill 绝对路径。Linux/macOS：
+## 按共同步骤开发
 
-```bash
-SKILL_DIR='/实际安装位置/api-dev'
-sh "$SKILL_DIR/scripts/atomic-api.sh" init
-```
+从 [Skill 入口](skills/api-dev/SKILL.md)选 [Atomic](skills/api-dev/references/api-atomic.md) 或 [App](skills/api-dev/references/app-api.md)，两份手册在每一步整合两种方式：
 
-Windows PowerShell：
+| 步骤 | 共同要求 | 纯文档 | 工具辅助 |
+|---|---|---|---|
+| 定位与适配 | 先读真实源码，区分新增能力、修改方法、补版本；核对签名和兼容边界 | 记录源码依据 | 另配置两层独立 profile |
+| 明确开发内容 | 确定真实字段、调用链、注册与版本 | 不需要 YAML | 将同一事实填入真实 contract |
+| 开发 | 新方法优先复用已有类；不覆盖已有业务体 | 借用模板片段手工实现 | 支持场景先预览、生成；不支持时仍手工增量 |
+| 测试与交付 | 真实测试、编译、人工证据和未验证项 | 不要求运行工具检查 | 额外报告 check/verify 结果与覆盖限制 |
 
-```powershell
-$skillDir = 'C:/实际安装位置/api-dev'
-& "$skillDir/scripts/atomic-api.cmd" init
-```
+[适配检查表](skills/api-dev/references/configuration.md#生成前适配检查表)区分真实约定与工具形状；[模板说明](skills/api-dev/references/templates.md)给出手工装配、生成对应关系及测试接入步骤；[规范对照](skills/api-dev/references/rules.md)保留 App N01～N24、Atomic A01～A08 与代码检查的逐条映射。
+工具限制不能变成修改公开接口、JSON、默认值、集合顺序或错误语义的理由。Atomic 补版本保留历史业务体；嵌套版本模型按 [增量清单](skills/api-dev/references/api-atomic.md#本项目嵌套版本接口的增量路线)接线。
 
-运行只需 Java 17+，无需全局安装、Maven、Python、管理员权限或修改 PATH。脚本从自身位置找 JAR，业务资料统一在 `.atomic-api/`；init 保留已有配置，不复制或更新 Skill。
+check 是辅助扫描，verify 的退出 0/STRUCTURE_READY 只表示自动结构无阻塞，不能替代真实编译、业务测试及人工审查。纯文档按相同规范交付，报告未运行工具，不需要为此补建 profile/YAML。
 
-然后直接提示 Agent（`.skills/` 仅为安装示例）：
+## 升级与业务资料
 
-> 请读取 `.skills/api-dev/SKILL.md`，开发 L2EVPN 的 EVPL 节点查询接入，先读已有实现并复用真实底层能力；已经存在则核对并增量修改。
-
-升级时在新目录展开完整 Skill，比较合并定制后更新引用路径。旧 `.atomic-api/skills/`、tool/、templates/ 保留并提示迁移，不自动覆盖或删除；业务 profile/contracts 继续沿用。详见 [配置与迁移](skills/api-dev/references/configuration.md#升级与定制)。
-
-## 项目配置（维护者一次核对）
-
-两条路线独立配置，不把 Atomic 套进 App 框架。`.atomic-api/profile.yaml` 配置 App；`.atomic-api/atomic-profile.yaml` 配置 Atomic，均不能直接使用虚构 com.example 草稿。
-
-App 配置：
-
-- `types`：组件管理、Facade 注解、Handler 基类、内部/外部异常、注入及组件注解的真实完整类名；方法签名必须可解析。
-- `targetJava`：业务源码版本，可选 8/11/17/21，与运行工具的 Java 17+ 分开。
-- `facadeDefault`：throw 或 return-null，遵守当前项目默认实现约定。
-- `layout`：packagePrefix 与仓库内 sourceRoot 对应，最长前缀匹配。目录与 package 不同时可加 directoryPrefix。
-- `roles`：必须包含 facade、request、response、implementation、handler、delegate、requestConverter、responseConverter 八个角色，每个都有 packagePrefix/sourceRoot，且落在对应 layout 内。工具据此生成类名和目录，不由模型每次决定。
-
-例如角色配置 `request: {packagePrefix: 项目公共DTO包, sourceRoot: 公共模块/src/main/java}`。init 的示例提供完整结构；替换为项目真实值，不填 operation 清单。可选 disabledFacade 使用现有 configuration 完整类名及 mapField，不能凭空创建注册机制。
-
-Atomic 配置的 roles 为 apiInterface/request/response/implementation/latest；latestKind 明确 class 或 interface，baseInterfaces/interfaceAnnotations 显式保留实际框架父接口和注解。版本注册注解由操作契约提供，不能猜测。具体继承关系和未覆盖边界见 `skills/api-dev/references/api-atomic.md`。
-
-## 规范、检查器、生成器逐条对应
-
-人类先读 [Skill 入口](skills/api-dev/SKILL.md) 的共用规范和分流表，再读对应路线文档；[逐条规范对照](skills/api-dev/references/rules.md)单独供审查。App 保留 N01～N24，Atomic 使用 A01～A08；编号分别对应真实检查代码、生成支持和未覆盖项，不能用另一层的结果验收。App 清单在 RuleCatalog.java，Atomic 清单在 AtomicTool.java；测试要求文档与代码一致。
-
-```bash
-sh "$SKILL_DIR/scripts/atomic-api.sh" rules --layer app
-sh "$SKILL_DIR/scripts/atomic-api.sh" rules --layer atomic --format json
-```
-
-verify 的 text/JSON 报告包含每条规范的 PASS、FAIL、INCOMPLETE、REVIEW_REQUIRED 或 NOT_EVALUATED。JSON 分开报告 structureStatus 与规范 status：自动结构通过但仍需审查时，status 为 REVIEW_REQUIRED。只有自动检查范围内无问题才记 PASS；JSON、版本、兼容性和测试执行等依赖业务证据的规则，会列出检查位置、未覆盖项和所需证据，不会假装静态证明。
-
-Helper 单一公开入口、组件注解、显式日志出口、异常文本语言、内部节点修饰符及 MapStruct 配置已补检查。生成器提供中文骨架注释；配置真实 `logging.type/factoryType/factoryMethod` 后生成 entry()/ret()，不为日志额外加 try-catch。字段和日志 API 必须来自实际项目，缺日志配置会报告 N13 待验证。
-
-## 开发流程
-
-以下仅为**模板已适配的新操作**示例；已有 L2EVPN 命名、内部节点和响应回填不能直接套通用模板，先按 App 手册核对。命令在业务仓库根执行，Windows 使用上文 $skillDir，将前缀换为 `& "$skillDir/scripts/atomic-api.cmd"`：
-
-```bash
-sh "$SKILL_DIR/scripts/atomic-api.sh" new --layer app --operation queryL2evpnEvplNodes --business l2evpn
-# Agent 填写输出契约中的真实业务字段、外部响应与映射
-sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --dry-run
-sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml --apply
-# 实现真实业务后检查并按 FIX 修复
-sh "$SKILL_DIR/scripts/atomic-api.sh" verify --layer app --contract .atomic-api/contracts/queryL2evpnEvplNodes.yaml
-```
-
-Atomic 示例：
-
-```bash
-sh "$SKILL_DIR/scripts/atomic-api.sh" new --layer atomic --operation getEvplService --business evpl --api-version R26C10
-# 填写 Atomic 契约的真实字段、用途、releases 注册注解及 latestAnnotations
-sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --dry-run
-sh "$SKILL_DIR/scripts/atomic-api.sh" generate --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml --apply
-sh "$SKILL_DIR/scripts/atomic-api.sh" verify --layer atomic --contract .atomic-api/contracts/atomic-getEvplService.yaml
-```
-
-Atomic 单独生成接口、公共 DTO、版本实现及配置模式的 Latest 骨架；不生成 Facade/Handler/Delegate，不自动发明注册表或真实 REST 调用。releases 仅列真实支持版本，顺序和首支持证据需审查。两种已支持的 Latest 结构若不适合实际项目，先适配工具，不能改框架凑模板。
-
-App 工具检查角色位置、转换器实际调用和纯映射范围、Facade 编排、Handler 常见职责错位、公共 DTO 反向依赖、明显占位、异常 cause 及本地父 POM 版本错配。无法解析时输出 INCOMPLETE，不能当通过。
-
-verify 退出 0/STRUCTURE_READY 只表示覆盖范围内结构可接受，业务交付还须有实际项目编译和定向测试。退出 1 表示违规/占位，2 表示配置或解析不完整；生成冲突也会阻塞。CI 可执行同一 verify 命令作为门槛。
-
-仅需骨架或缺底层资料时保留占位并报告 SCAFFOLD；新生成的骨架 verify 失败是预期行为。App 只读旧接口可用 check，App v1 只保留存量兼容，不能替代新增 v2 的 verify；Atomic check/verify 均须 Atomic v1 真实契约。嵌套 DTO、复杂映射、版本注册运行及 JSON 语义仍需真实框架资料和人工验证，不能改外部契约迎合工具。
-
-## 实际模板与增量开发
-
-两套实际模板位于 `skills/api-dev/templates/atomic/`、`skills/api-dev/templates/app/`，DTO 共用 `common/`。
-它们由 AtomicTool/Generator 读取并装配，Skill 同时携带 `templates/` 可读文件；[模板说明](skills/api-dev/references/templates.md)列出替换项和代码对应关系。
-生成计划附带明确失败的业务测试待办，不假定项目 JUnit 版本；迁入真实测试目录、补调用和断言后才能验收。
-Atomic 全量生成不支持覆盖历史真实实现，补版本采用[只新增版本的增量路线](skills/api-dev/references/api-atomic.md#4-为已有能力补一个支持版本)。
-[L2EVPN 案例](skills/api-dev/references/l2evpn-example.md)是待私有源码校准的上下文线索，不是权威源码快照；具体待核对文件列在案例末尾。
+业务配置、契约、接入记录与日志统一放业务仓 `.atomic-api/`，不创建 Agent 适配目录。纯文档无需运行 init，也无需创建工具配置。
+升级在新位置展开完整 Skill，比较合并定制后更新引用路径；旧 `.atomic-api/skills/`、tool/、templates/ 保留，init 不静默覆盖或删除。生成器读取 JAR 内模板，修改可读文件不会自动改变生成行为。详见 [配置与迁移](skills/api-dev/references/configuration.md#升级与定制)。
 
 ## 工具维护与试用
 
-从任意 Git 托管平台克隆或下载的源码不含 JAR。维护工具需要 JDK 17、Maven 和 Python 3；在本仓库根目录执行以下命令，构建后可直接运行 Skill 的 scripts/ 入口，无需安装：
+以下仅供工具维护者使用，纯文档用户无需构建。维护工具需要 JDK 17、Maven 和 Python 3；在本仓库根目录执行以下命令，构建后可直接运行 Skill 的 scripts/ 入口，无需安装：
 
 ```bash
 mvn -f skills/api-dev/tools/cli/pom.xml clean verify
